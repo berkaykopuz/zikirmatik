@@ -3,8 +3,8 @@ import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Dimensions } from
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-const DEVICE_WIDTH = width * 0.85;
-const DEVICE_HEIGHT = DEVICE_WIDTH * 1.3;
+const DEVICE_WIDTH = width * 0.6;
+const DEVICE_HEIGHT = DEVICE_WIDTH * 1.0;
 const DAILY_TARGET = 10000;
 
 export default function HomeScreen() {
@@ -49,21 +49,6 @@ export default function HomeScreen() {
             <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
           </View>
 
-          {/* Progress Circle */}
-          <View style={styles.progressCircleContainer}>
-            <View style={styles.progressCircleBackground}>
-              <View 
-                style={[
-                  styles.progressCircleFill,
-                  {
-                    width: `${progressPercentage}%`,
-                    backgroundColor: progress >= 1 ? '#4CAF50' : '#FFD700',
-                  }
-                ]}
-              />
-            </View>
-            <Text style={styles.progressText}>{progressPercentage}%</Text>
-          </View>
 
           {/* Main Counting Button (Large Center Button) */}
           <TouchableOpacity 
@@ -98,7 +83,7 @@ export default function HomeScreen() {
                 styles.progressBarFill,
                 {
                   width: `${progressPercentage}%`,
-                  backgroundColor: progress >= 1 ? '#4CAF50' : '#FFD700',
+                  backgroundColor: '#e8ca8e',
                 }
               ]}
             />
@@ -120,18 +105,20 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#1f2025',
   },
   contentContainer: {
     flexGrow: 1,
-    padding: 20,
-    paddingTop: 40,
+    padding: 15,
+    paddingTop: 20,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   deviceContainer: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    justifyContent: 'center',
+    marginBottom: 20,
   },
   device: {
     width: DEVICE_WIDTH,
@@ -139,8 +126,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
     borderRadius: DEVICE_WIDTH * 0.3,
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 40,
+    justifyContent: 'center',
+    paddingTop: 20,
+    paddingBottom: 25,
     position: 'relative',
     elevation: 8,
     shadowColor: '#000',
@@ -149,27 +137,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     // Subtle highlight on top edge
     borderTopWidth: 1,
-    borderTopColor: '#333333',
+    borderTopColor: '#2a2b30',
   },
   displayContainer: {
-    width: '85%',
-    height: 60,
-    backgroundColor: '#00FF00',
-    borderRadius: 8,
+    width: '70%',
+    height: 45,
+    backgroundColor: '#03c459',
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
-    paddingHorizontal: 10,
+    marginBottom: 15,
+    paddingHorizontal: 8,
     // LED display effect
-    borderWidth: 2,
-    borderColor: '#00CC00',
+    borderWidth: 1.5,
+    borderColor: '#003300',
   },
   ledDisplay: {
-    fontSize: 32,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#003300',
-    fontFamily: 'monospace',
-    letterSpacing: 2,
+    fontFamily: 'DS-Digital',
+    letterSpacing: 1.5,
   },
   progressCircleContainer: {
     width: 120,
@@ -199,10 +187,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   mainButton: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#C0C0C0',
+    width: 75,
+    height: 75,
+    borderRadius: 37.5,
+    backgroundColor: '#c7c7c7',
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 6,
@@ -210,18 +198,13 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
-    // Metallic silver effect
-    borderWidth: 2,
-    borderTopColor: '#E0E0E0',
-    borderRightColor: '#E0E0E0',
-    borderBottomColor: '#808080',
-    borderLeftColor: '#808080',
+    marginTop: 60,
   },
   mainButtonInner: {
-    width: 90,
-    height: 90,
-    borderRadius: 45,
-    backgroundColor: '#D0D0D0',
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    backgroundColor: '#c7c7c7',
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
@@ -229,26 +212,26 @@ const styles = StyleSheet.create({
   mainButtonPattern: {
     width: '100%',
     height: '100%',
-    borderRadius: 45,
+    borderRadius: 34,
     // Concentric circle pattern
-    borderWidth: 2,
-    borderColor: '#B0B0B0',
+    borderWidth: 1.5,
+    borderColor: '#1f2025',
     backgroundColor: 'transparent',
   },
   resetButtonSmall: {
     position: 'absolute',
-    right: 20,
+    right: 15,
     top: '50%',
-    marginTop: -15,
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#C0C0C0',
+    marginTop: -12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#c7c7c7',
     borderWidth: 1,
-    borderTopColor: '#E0E0E0',
-    borderRightColor: '#E0E0E0',
-    borderBottomColor: '#808080',
-    borderLeftColor: '#808080',
+    borderTopColor: '#c7c7c7',
+    borderRightColor: '#c7c7c7',
+    borderBottomColor: '#c7c7c7',
+    borderLeftColor: '#c7c7c7',
     elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -258,68 +241,68 @@ const styles = StyleSheet.create({
   statsSection: {
     width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    marginBottom: 20,
   },
   largeCount: {
-    fontSize: 48,
+    fontSize: 36,
     fontWeight: 'bold',
-    color: '#FFD700',
-    marginBottom: 8,
-    letterSpacing: 1,
+    color: '#e8ca8e',
+    marginBottom: 6,
+    letterSpacing: 0.5,
   },
   dailyGoalText: {
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontSize: 14,
+    color: '#e6e7e9',
     opacity: 0.8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   progressBarContainer: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
   },
   progressBarBackground: {
     flex: 1,
-    height: 8,
-    backgroundColor: '#3A3A3A',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#c7c7c7',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: 3,
   },
   progressBarLabel: {
-    fontSize: 12,
-    color: '#FFFFFF',
+    fontSize: 10,
+    color: '#e6e7e9',
     fontWeight: '600',
     opacity: 0.9,
   },
   hadithSection: {
     width: '100%',
-    backgroundColor: '#3A3A3A',
-    borderRadius: 16,
-    padding: 20,
-    marginTop: 20,
+    backgroundColor: '#2c2f34',
+    borderRadius: 12,
+    padding: 15,
+    marginTop: 15,
   },
   hadithTitle: {
-    fontSize: 22,
+    fontSize: 18,
     fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 12,
+    color: '#e6e7e9',
+    marginBottom: 10,
     textAlign: 'center',
   },
   hadithText: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#e6e7e9',
     textAlign: 'justify',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   hadithSource: {
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontSize: 12,
+    color: '#e6e7e9',
     opacity: 0.8,
     textAlign: 'right',
     fontStyle: 'italic',
