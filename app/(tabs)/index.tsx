@@ -1,98 +1,327 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { useState } from 'react';
+import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import * as Haptics from 'expo-haptics';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const { width } = Dimensions.get('window');
+const DEVICE_WIDTH = width * 0.85;
+const DEVICE_HEIGHT = DEVICE_WIDTH * 1.3;
+const DAILY_TARGET = 10000;
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [count, setCount] = useState(0);
+  const [target, setTarget] = useState(DAILY_TARGET);
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  const progress = Math.min(count / target, 1);
+  const progressPercentage = Math.round(progress * 100);
+
+  const increment = () => {
+    setCount((prev) => prev + 1);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  };
+
+  const reset = () => {
+    setCount(0);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+  };
+
+  // Sample hadith - in a real app, this would come from an API or database
+  const dailyHadith = {
+    text: 'Kim bir Müslüman ayıbı örterse. Allah da dünya ve ahirette onu aynısını örter.',
+    source: 'Hadis-i Şerif',
+  };
+
+  // Format count with leading zeros (like LED display)
+  const formatCount = (num: number) => {
+    return String(num).padStart(5, '0');
+  };
+
+  return (
+    <ScrollView 
+      style={styles.container} 
+      contentContainerStyle={styles.contentContainer}
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Physical Zikirmatik Device */}
+      <View style={styles.deviceContainer}>
+        <View style={styles.device}>
+          {/* Green LED Display */}
+          <View style={styles.displayContainer}>
+            <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
+          </View>
+
+          {/* Progress Circle */}
+          <View style={styles.progressCircleContainer}>
+            <View style={styles.progressCircleBackground}>
+              <View 
+                style={[
+                  styles.progressCircleFill,
+                  {
+                    width: `${progressPercentage}%`,
+                    backgroundColor: progress >= 1 ? '#4CAF50' : '#FFD700',
+                  }
+                ]}
+              />
+            </View>
+            <Text style={styles.progressText}>{progressPercentage}%</Text>
+          </View>
+
+          {/* Main Counting Button (Large Center Button) */}
+          <TouchableOpacity 
+            style={styles.mainButton}
+            onPress={increment}
+            activeOpacity={0.8}
+          >
+            <View style={styles.mainButtonInner}>
+              <View style={styles.mainButtonPattern} />
+            </View>
+          </TouchableOpacity>
+
+          {/* Reset Button (Small Side Button) */}
+          <TouchableOpacity 
+            style={styles.resetButtonSmall}
+            onPress={reset}
+            activeOpacity={0.7}
+          />
+        </View>
+      </View>
+
+      {/* Current Count and Daily Goal */}
+      <View style={styles.statsSection}>
+        <Text style={styles.largeCount}>{count.toLocaleString()}</Text>
+        <Text style={styles.dailyGoalText}>Daily Goal: {target.toLocaleString()}</Text>
+        
+        {/* Progress Bar */}
+        <View style={styles.progressBarContainer}>
+          <View style={styles.progressBarBackground}>
+            <View 
+              style={[
+                styles.progressBarFill,
+                {
+                  width: `${progressPercentage}%`,
+                  backgroundColor: progress >= 1 ? '#4CAF50' : '#FFD700',
+                }
+              ]}
+            />
+          </View>
+          <Text style={styles.progressBarLabel}>ZİKİRLERİM</Text>
+        </View>
+      </View>
+
+      {/* Daily Hadith Section */}
+      <View style={styles.hadithSection}>
+        <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+        <Text style={styles.hadithText}>{dailyHadith.text}</Text>
+        <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
+  container: {
+    flex: 1,
+    backgroundColor: '#1E1E1E',
+  },
+  contentContainer: {
+    flexGrow: 1,
+    padding: 20,
+    paddingTop: 40,
+    alignItems: 'center',
+  },
+  deviceContainer: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  device: {
+    width: DEVICE_WIDTH,
+    height: DEVICE_HEIGHT,
+    backgroundColor: '#000000',
+    borderRadius: DEVICE_WIDTH * 0.3,
+    alignItems: 'center',
+    paddingTop: 30,
+    paddingBottom: 40,
+    position: 'relative',
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 8,
+    // Subtle highlight on top edge
+    borderTopWidth: 1,
+    borderTopColor: '#333333',
+  },
+  displayContainer: {
+    width: '85%',
+    height: 60,
+    backgroundColor: '#00FF00',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+    paddingHorizontal: 10,
+    // LED display effect
+    borderWidth: 2,
+    borderColor: '#00CC00',
+  },
+  ledDisplay: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#003300',
+    fontFamily: 'monospace',
+    letterSpacing: 2,
+  },
+  progressCircleContainer: {
+    width: 120,
+    height: 120,
+    marginBottom: 30,
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  progressCircleBackground: {
+    position: 'absolute',
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#3A3A3A',
+    overflow: 'hidden',
+  },
+  progressCircleFill: {
+    position: 'absolute',
+    height: '100%',
+    borderRadius: 60,
+  },
+  progressText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    zIndex: 1,
+  },
+  mainButton: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#C0C0C0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+    // Metallic silver effect
+    borderWidth: 2,
+    borderTopColor: '#E0E0E0',
+    borderRightColor: '#E0E0E0',
+    borderBottomColor: '#808080',
+    borderLeftColor: '#808080',
+  },
+  mainButtonInner: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#D0D0D0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  mainButtonPattern: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 45,
+    // Concentric circle pattern
+    borderWidth: 2,
+    borderColor: '#B0B0B0',
+    backgroundColor: 'transparent',
+  },
+  resetButtonSmall: {
+    position: 'absolute',
+    right: 20,
+    top: '50%',
+    marginTop: -15,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#C0C0C0',
+    borderWidth: 1,
+    borderTopColor: '#E0E0E0',
+    borderRightColor: '#E0E0E0',
+    borderBottomColor: '#808080',
+    borderLeftColor: '#808080',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 3,
+  },
+  statsSection: {
+    width: '100%',
+    alignItems: 'center',
+    marginBottom: 30,
+  },
+  largeCount: {
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFD700',
+    marginBottom: 8,
+    letterSpacing: 1,
+  },
+  dailyGoalText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    marginBottom: 12,
+  },
+  progressBarContainer: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  progressBarBackground: {
+    flex: 1,
+    height: 8,
+    backgroundColor: '#3A3A3A',
+    borderRadius: 4,
+    overflow: 'hidden',
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  progressBarLabel: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+    opacity: 0.9,
+  },
+  hadithSection: {
+    width: '100%',
+    backgroundColor: '#3A3A3A',
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 20,
+  },
+  hadithTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  hadithText: {
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#FFFFFF',
+    textAlign: 'justify',
+    marginBottom: 12,
+  },
+  hadithSource: {
+    fontSize: 14,
+    color: '#FFFFFF',
+    opacity: 0.8,
+    textAlign: 'right',
+    fontStyle: 'italic',
   },
 });
