@@ -1,18 +1,27 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Dimensions } from 'react-native';
+import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Dimensions, Modal, Pressable } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
 const DEVICE_WIDTH = width * 0.6;
 const DEVICE_HEIGHT = DEVICE_WIDTH * 1.0;
 const DAILY_TARGET = 10000;
+const MAIN_BUTTON_SIZE = 75;
+const PROGRESS_RING_STROKE = 6;
+const PROGRESS_RING_GAP = 4; // visual gap between button edge and ring inner edge
+const PROGRESS_RING_SIZE = PROGRESS_RING_STROKE + MAIN_BUTTON_SIZE + (2 * PROGRESS_RING_GAP);
+const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
+const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 export default function HomeScreen() {
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(DAILY_TARGET);
+  const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
 
   const progress = Math.min(count / target, 1);
-  const progressPercentage = Math.round(progress * 100);
+  const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
+  const remainingCount = Math.max(target - count, 0);
 
   const increment = () => {
     setCount((prev) => prev + 1);
@@ -24,13 +33,17 @@ export default function HomeScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   };
 
-  // Sample hadith - in a real app, this would come from an API or database
   const dailyHadith = {
     text: 'Kim bir Müslüman ayıbı örterse. Allah da dünya ve ahirette onu aynısını örter.',
     source: 'Hadis-i Şerif',
   };
 
-  // Format count with leading zeros (like LED display)
+  const zikirInfo = {
+    name: 'Subhanallah',
+    description:
+      'Subhanallah zikri, Allah’ın her türlü eksiklikten münezzeh olduğunu hatırlamak için söylenir. Her tekrar eden, Allah’ın büyüklüğünü ve kusursuzluğunu kalbinde tazeler.',
+  };
+
   const formatCount = (num: number) => {
     return String(num).padStart(5, '0');
   };
@@ -41,6 +54,19 @@ export default function HomeScreen() {
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
+      {/* Zikir Info Banner */}
+      <TouchableOpacity
+        style={styles.zikirBar}
+        onPress={() => setZikirInfoVisible(true)}
+        activeOpacity={0.85}
+      >
+        <View style={styles.zikirBarCenter}>
+          <Text style={styles.zikirBarName}>{zikirInfo.name}</Text>
+          <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
+        </View>
+        <Text style={styles.infoHint}>ⓘ</Text>
+      </TouchableOpacity>
+
       {/* Physical Zikirmatik Device */}
       <View style={styles.deviceContainer}>
         <View style={styles.device}>
@@ -51,15 +77,39 @@ export default function HomeScreen() {
 
 
           {/* Main Counting Button (Large Center Button) */}
-          <TouchableOpacity 
-            style={styles.mainButton}
-            onPress={increment}
-            activeOpacity={0.8}
-          >
-            <View style={styles.mainButtonInner}>
-              <View style={styles.mainButtonPattern} />
-            </View>
-          </TouchableOpacity>
+          <View style={styles.mainButtonWrapper}>
+            <Svg width={PROGRESS_RING_SIZE} height={PROGRESS_RING_SIZE} style={styles.progressRing}>
+              <Circle
+                cx={PROGRESS_RING_SIZE / 2}
+                cy={PROGRESS_RING_SIZE / 2}
+                r={PROGRESS_RING_RADIUS}
+                stroke="#3a3b40"
+                strokeWidth={PROGRESS_RING_STROKE}
+                fill="none"
+              />
+              <Circle
+                cx={PROGRESS_RING_SIZE / 2}
+                cy={PROGRESS_RING_SIZE / 2}
+                r={PROGRESS_RING_RADIUS}
+                stroke="#03c459"
+                strokeWidth={PROGRESS_RING_STROKE}
+                strokeDasharray={`${PROGRESS_RING_CIRCUMFERENCE} ${PROGRESS_RING_CIRCUMFERENCE}`}
+                strokeDashoffset={strokeDashoffset}
+                strokeLinecap="round"
+                fill="none"
+                transform={`rotate(-90 ${PROGRESS_RING_SIZE / 2} ${PROGRESS_RING_SIZE / 2})`}
+              />
+            </Svg>
+            <TouchableOpacity 
+              style={styles.mainButton}
+              onPress={increment}
+              activeOpacity={0.8}
+            >
+              <View style={styles.mainButtonInner}>
+                <View style={styles.mainButtonPattern} />
+              </View>
+            </TouchableOpacity>
+          </View>
 
           {/* Reset Button (Small Side Button) */}
           <TouchableOpacity 
@@ -70,34 +120,33 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Current Count and Daily Goal */}
-      <View style={styles.statsSection}>
-        <Text style={styles.largeCount}>{count.toLocaleString()}</Text>
-        <Text style={styles.dailyGoalText}>Daily Goal: {target.toLocaleString()}</Text>
-        
-        {/* Progress Bar */}
-        <View style={styles.progressBarContainer}>
-          <View style={styles.progressBarBackground}>
-            <View 
-              style={[
-                styles.progressBarFill,
-                {
-                  width: `${progressPercentage}%`,
-                  backgroundColor: '#e8ca8e',
-                }
-              ]}
-            />
-          </View>
-          <Text style={styles.progressBarLabel}>ZİKİRLERİM</Text>
-        </View>
-      </View>
-
       {/* Daily Hadith Section */}
       <View style={styles.hadithSection}>
         <Text style={styles.hadithTitle}>Günün Hadisi</Text>
         <Text style={styles.hadithText}>{dailyHadith.text}</Text>
         <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
       </View>
+
+      <Modal
+        visible={isZikirInfoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setZikirInfoVisible(false)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setZikirInfoVisible(false)}>
+          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+            <Text style={styles.modalTitle}>{zikirInfo.name}</Text>
+            <Text style={styles.modalDescription}>{zikirInfo.description}</Text>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setZikirInfoVisible(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.modalCloseButtonText}>Kapat</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </ScrollView>
   );
 }
@@ -113,6 +162,43 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  zikirBar: {
+    width: '70%',
+    backgroundColor: '#2c2f34',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    marginBottom: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+    position: 'relative',
+  },
+  zikirBarCenter: {
+    alignItems: 'center',
+  },
+  zikirBarName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#ffbf00',
+    letterSpacing: 0.5,
+  },
+  zikirBarGoal: {
+    fontSize: 11,
+    color: '#a7acb5',
+    marginTop: 5,
+    letterSpacing: 0.5,
+  },
+  infoHint: {
+    fontSize: 14,
+    color: '#e6e7e9',
+    opacity: 0.7,
+    position: 'absolute',
+    right: 18,
+    top: '50%',
+    marginTop: -10,
   },
   deviceContainer: {
     width: '100%',
@@ -146,7 +232,6 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 15,
     paddingHorizontal: 8,
     // LED display effect
     borderWidth: 1.5,
@@ -156,29 +241,8 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#003300',
-    fontFamily: 'DS-Digital',
+    fontFamily: 'serif',
     letterSpacing: 1.5,
-  },
-  progressCircleContainer: {
-    width: 120,
-    height: 120,
-    marginBottom: 30,
-    position: 'relative',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  progressCircleBackground: {
-    position: 'absolute',
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#3A3A3A',
-    overflow: 'hidden',
-  },
-  progressCircleFill: {
-    position: 'absolute',
-    height: '100%',
-    borderRadius: 60,
   },
   progressText: {
     fontSize: 18,
@@ -186,10 +250,23 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     zIndex: 1,
   },
+  mainButtonWrapper: {
+    width: PROGRESS_RING_SIZE,
+    height: PROGRESS_RING_SIZE,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 60,
+  },
+  progressRing: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
   mainButton: {
-    width: 75,
-    height: 75,
-    borderRadius: 37.5,
+    width: MAIN_BUTTON_SIZE,
+    height: MAIN_BUTTON_SIZE,
+    borderRadius: MAIN_BUTTON_SIZE / 2,
     backgroundColor: '#c7c7c7',
     justifyContent: 'center',
     alignItems: 'center',
@@ -198,12 +275,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.4,
     shadowRadius: 6,
-    marginTop: 60,
   },
   mainButtonInner: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: MAIN_BUTTON_SIZE - 7,
+    height: MAIN_BUTTON_SIZE - 7,
+    borderRadius: (MAIN_BUTTON_SIZE - 7) / 2,
     backgroundColor: '#c7c7c7',
     justifyContent: 'center',
     alignItems: 'center',
@@ -213,7 +289,6 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 34,
-    // Concentric circle pattern
     borderWidth: 1.5,
     borderColor: '#1f2025',
     backgroundColor: 'transparent',
@@ -306,5 +381,46 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     textAlign: 'right',
     fontStyle: 'italic',
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    width: '100%',
+    backgroundColor: '#1f2025',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#ffbf00',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: '#e6e7e9',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalCloseButton: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 24,
+    backgroundColor: '#ffbf00',
+    borderRadius: 999,
+  },
+  modalCloseButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0b2f1b',
   },
 });

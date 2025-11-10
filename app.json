@@ -45,6 +45,7 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "assets": ["./assets/fonts/"]
+    "assets": ["./assets/fonts/"],
+    "entryPoint": "./App.js"
   }
 }

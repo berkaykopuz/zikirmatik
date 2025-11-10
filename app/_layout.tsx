@@ -13,13 +13,13 @@ export const unstable_settings = {
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
-  const [fontsLoaded] = useFonts({
+  /*const [fontsLoaded] = useFonts({
     "DS-Digital": require("../assets/fonts/DS-DIGI.TTF"),
   });
 
   if (!fontsLoaded) {
-    return null; // veya splash
-  }
+    return null; 
+  }*/
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
