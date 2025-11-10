@@ -1,6 +1,8 @@
-import { useState } from 'react';
-import { ScrollView, StyleSheet, View, Text, TouchableOpacity, Dimensions, Modal, Pressable } from 'react-native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useState } from 'react';
+import { Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 const { width } = Dimensions.get('window');
@@ -48,6 +50,16 @@ export default function HomeScreen() {
     return String(num).padStart(5, '0');
   };
 
+  const shareHadith = async () => {
+    try {
+      const result = await Share.share({
+        message: `${dailyHadith.text}\n\n— ${dailyHadith.source}`,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   return (
     <ScrollView 
       style={styles.container} 
@@ -70,6 +82,10 @@ export default function HomeScreen() {
       {/* Physical Zikirmatik Device */}
       <View style={styles.deviceContainer}>
         <View style={styles.device}>
+          {/* Stylistic background layers */}
+          <View style={styles.deviceInnerGlow} />
+          <View style={styles.deviceTopHighlight} />
+          
           {/* Green LED Display */}
           <View style={styles.displayContainer}>
             <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
@@ -122,7 +138,16 @@ export default function HomeScreen() {
 
       {/* Daily Hadith Section */}
       <View style={styles.hadithSection}>
-        <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+        <View style={styles.hadithHeader}>
+          <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+          <TouchableOpacity 
+            style={styles.shareButton}
+            onPress={shareHadith}
+            activeOpacity={0.7}
+          >
+            <MaterialIcons name="share" size={18} color="#e6e7e9" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.hadithText}>{dailyHadith.text}</Text>
         <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
       </View>
@@ -133,19 +158,22 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setZikirInfoVisible(false)}
       >
-        <Pressable style={styles.modalBackdrop} onPress={() => setZikirInfoVisible(false)}>
-          <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-            <Text style={styles.modalTitle}>{zikirInfo.name}</Text>
-            <Text style={styles.modalDescription}>{zikirInfo.description}</Text>
-            <TouchableOpacity
-              style={styles.modalCloseButton}
-              onPress={() => setZikirInfoVisible(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.modalCloseButtonText}>Kapat</Text>
-            </TouchableOpacity>
-          </Pressable>
-        </Pressable>
+          <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
+            <Pressable style={styles.modalBackdropPressable} onPress={() => setZikirInfoVisible(false)}>
+              <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+                <Text style={styles.modalTitle}>{zikirInfo.name}</Text>
+                <Text style={styles.modalDescription}>{zikirInfo.description}</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setZikirInfoVisible(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalCloseButtonText}>Kapat</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </BlurView>
+
       </Modal>
     </ScrollView>
   );
@@ -209,24 +237,48 @@ const styles = StyleSheet.create({
   device: {
     width: DEVICE_WIDTH,
     height: DEVICE_HEIGHT,
-    backgroundColor: '#000000',
+    backgroundColor: '#131313ff',
     borderRadius: DEVICE_WIDTH * 0.3,
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 20,
     paddingBottom: 25,
     position: 'relative',
-    elevation: 8,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.5,
-    shadowRadius: 8,
-    // Subtle highlight on top edge
-    borderTopWidth: 1,
-    borderTopColor: '#2a2b30',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.7,
+    shadowRadius: 12,
+    // Multi-layered borders for depth
+    borderWidth: 2,
+    borderColor: '#1a1a1f',
+    // Inner shadow effect using overlay
+    overflow: 'hidden',
+  },
+  deviceInnerGlow: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: DEVICE_WIDTH * 0.3,
+    borderWidth: 1,
+    borderColor: '#2a2b30',
+    opacity: 0.3,
+  },
+  deviceTopHighlight: {
+    position: 'absolute',
+    top: 0,
+    left: '20%',
+    right: '20%',
+    height: '15%',
+    backgroundColor: '#1a1a1f',
+    borderTopLeftRadius: DEVICE_WIDTH * 0.3,
+    borderTopRightRadius: DEVICE_WIDTH * 0.3,
+    opacity: 0.4,
   },
   displayContainer: {
-    width: '70%',
+    width: '60%',
     height: 45,
     backgroundColor: '#03c459',
     borderRadius: 6,
@@ -361,12 +413,23 @@ const styles = StyleSheet.create({
     padding: 15,
     marginTop: 15,
   },
+  hadithHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 12,
+    position: 'relative',
+  },
   hadithTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#e6e7e9',
-    marginBottom: 10,
     textAlign: 'center',
+  },
+  shareButton: {
+    position: 'absolute',
+    right: 1,
+    borderRadius: 4,
   },
   hadithText: {
     fontSize: 14,
@@ -384,7 +447,15 @@ const styles = StyleSheet.create({
   },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalBackdropWeb: {
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalBackdropPressable: {
+    flex: 1,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
