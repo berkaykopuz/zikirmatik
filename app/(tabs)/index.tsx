@@ -1,9 +1,11 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+
+import { useZikhr } from '@/context/ZikhrContext';
 
 const { width } = Dimensions.get('window');
 const DEVICE_WIDTH = width * 0.6;
@@ -17,10 +19,16 @@ const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 export default function HomeScreen() {
+  const { selectedZikhr } = useZikhr();
   const [count, setCount] = useState(0);
-  const [target, setTarget] = useState(DAILY_TARGET);
+  const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
+
+  useEffect(() => {
+    setTarget(selectedZikhr.count ?? DAILY_TARGET);
+    setCount(0);
+  }, [selectedZikhr]);
 
   const progress = Math.min(count / target, 1);
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -39,12 +47,6 @@ export default function HomeScreen() {
   const dailyHadith = {
     text: 'Kim bir Müslüman ayıbı örterse. Allah da dünya ve ahirette onu aynısını örter.',
     source: 'Hadis-i Şerif',
-  };
-
-  const zikirInfo = {
-    name: 'Subhanallah',
-    description:
-      'Subhanallah zikri, Allah’ın her türlü eksiklikten münezzeh olduğunu hatırlamak için söylenir. Her tekrar eden, Allah’ın büyüklüğünü ve kusursuzluğunu kalbinde tazeler.',
   };
 
   const formatCount = (num: number) => {
@@ -74,7 +76,7 @@ export default function HomeScreen() {
         activeOpacity={0.85}
       >
         <View style={styles.zikirBarCenter}>
-          <Text style={styles.zikirBarName}>{zikirInfo.name}</Text>
+          <Text style={styles.zikirBarName}>{selectedZikhr.name}</Text>
           <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
         </View>
         <Text style={styles.infoHint}>ⓘ</Text>
@@ -170,8 +172,12 @@ export default function HomeScreen() {
           <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
             <Pressable style={styles.modalBackdropPressable} onPress={() => setZikirInfoVisible(false)}>
               <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-                <Text style={styles.modalTitle}>{zikirInfo.name}</Text>
-                <Text style={styles.modalDescription}>{zikirInfo.description}</Text>
+                <Text style={styles.modalTitle}>{selectedZikhr.name}</Text>
+                <Text style={styles.modalDescription}>{selectedZikhr.description}</Text>
+                <View style={styles.modalInfoRow}>
+                  <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
+                  <Text style={styles.modalInfoValue}>{selectedZikhr.count}</Text>
+                </View>
                 <TouchableOpacity
                   style={styles.modalCloseButton}
                   onPress={() => setZikirInfoVisible(false)}
@@ -519,6 +525,29 @@ const styles = StyleSheet.create({
     color: '#e6e7e9',
     marginBottom: 20,
     textAlign: 'center',
+  },
+  modalInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#26292f',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+    marginBottom: 16,
+  },
+  modalInfoLabel: {
+    fontSize: 14,
+    color: '#a7acb5',
+    fontWeight: '600',
+  },
+  modalInfoValue: {
+    fontSize: 16,
+    color: '#ffbf00',
+    fontWeight: '700',
+    letterSpacing: 1,
   },
   modalCloseButton: {
     alignSelf: 'center',
