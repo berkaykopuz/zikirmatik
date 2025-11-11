@@ -20,6 +20,7 @@ export default function HomeScreen() {
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
+  const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
 
   const progress = Math.min(count / target, 1);
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -137,21 +138,29 @@ export default function HomeScreen() {
       </View>
 
       {/* Daily Hadith Section */}
-      <View style={styles.hadithSection}>
-        <View style={styles.hadithHeader}>
-          <Text style={styles.hadithTitle}>Günün Hadisi</Text>
-          <TouchableOpacity 
-            style={styles.shareButton}
-            onPress={shareHadith}
-            activeOpacity={0.7}
-          >
-            <MaterialIcons name="share" size={18} color="#e6e7e9" />
-          </TouchableOpacity>
-        </View>
-        <Text style={styles.hadithText}>{dailyHadith.text}</Text>
-        <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
-      </View>
+      <TouchableOpacity
+        style={styles.hadithSection}
+        onPress={() => setHadithInfoVisible(true)}
+        activeOpacity={0.85}
+      >
 
+          <View style={styles.hadithHeader}>
+            <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+            <TouchableOpacity 
+              style={styles.shareButton}
+              onPress={shareHadith}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="share" size={18} color="#e6e7e9" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={styles.hadithText} numberOfLines={1} ellipsizeMode="tail">{dailyHadith.text}</Text>
+          <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
+
+      </TouchableOpacity>
+
+      {/* Zikir Pop-up Card */}
       <Modal
         visible={isZikirInfoVisible}
         transparent
@@ -175,7 +184,35 @@ export default function HomeScreen() {
           </BlurView>
 
       </Modal>
+
+      {/* Hadith Pop-up Card */}
+      <Modal
+        visible={isHadithInfoVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setHadithInfoVisible(false)}
+      >
+          <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
+            <Pressable style={styles.modalBackdropPressable} onPress={() => setHadithInfoVisible(false)}>
+              <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+                <Text style={styles.modalTitle}>{dailyHadith.source}</Text>
+                <Text style={styles.modalDescription}>{dailyHadith.text}</Text>
+                <TouchableOpacity
+                  style={styles.modalCloseButton}
+                  onPress={() => setHadithInfoVisible(false)}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.modalCloseButtonText}>Kapat</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </BlurView>
+
+      </Modal>
+
+
     </ScrollView>
+
   );
 }
 
@@ -232,7 +269,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
+    marginBottom: 10,
   },
   device: {
     width: DEVICE_WIDTH,
@@ -241,7 +278,7 @@ const styles = StyleSheet.create({
     borderRadius: DEVICE_WIDTH * 0.3,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 20,
+    paddingTop: 30,
     paddingBottom: 25,
     position: 'relative',
     elevation: 12,
@@ -280,7 +317,7 @@ const styles = StyleSheet.create({
   displayContainer: {
     width: '60%',
     height: 45,
-    backgroundColor: '#03c459',
+    backgroundColor: '#098441ff',
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
@@ -411,20 +448,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c2f34',
     borderRadius: 12,
     padding: 15,
-    marginTop: 15,
+    bottom: 15,
+    position:"absolute"
   },
   hadithHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-start',
     marginBottom: 12,
     position: 'relative',
   },
   hadithTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: 'bold',
     color: '#e6e7e9',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   shareButton: {
     position: 'absolute',
