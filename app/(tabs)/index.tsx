@@ -19,6 +19,7 @@ const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 export default function HomeScreen() {
+  
   const { selectedZikhr } = useZikhr();
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
@@ -225,7 +226,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1f2025',
+    backgroundColor: '#060810ff',
   },
   contentContainer: {
     flexGrow: 1,
