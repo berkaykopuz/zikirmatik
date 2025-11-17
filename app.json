@@ -20,7 +20,20 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.berkaykopuz.zikirmatikapp"
+      "package": "com.berkaykopuz.zikirmatikapp",
+      "android": {
+            "fonts": [
+              {
+                "fontFamily": "DSdigi",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/DS-DIGII.ttf",
+                    "weight": 800
+                  }
+                ]
+              }
+            ]
+          }
     },
     "web": {
       "output": "static",

@@ -1,8 +1,8 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
-import { useEffect, useState } from 'react';
-import { Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { useZikhr } from '@/context/ZikhrContext';
@@ -25,23 +25,41 @@ export default function HomeScreen() {
   const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
+  const [hasCompleted, setHasCompleted] = useState(false);
 
   useEffect(() => {
     setTarget(selectedZikhr.count ?? DAILY_TARGET);
     setCount(0);
+    setHasCompleted(false);
   }, [selectedZikhr]);
 
   const progress = Math.min(count / target, 1);
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
   const remainingCount = Math.max(target - count, 0);
 
+  // Notify user when it is completed
+  const notifyCompletion = useCallback(() => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    Alert.alert('Tebrikler!', selectedZikhr.name + " zikrini tamamladınız.");
+  }, []);
+
+  // Check in every step if it is completed
   const increment = () => {
-    setCount((prev) => prev + 1);
+    setCount((prev) => {
+      const updated = prev + 1;
+      if (!hasCompleted && updated >= target && target > 0) {
+        setHasCompleted(true);
+        notifyCompletion();
+      }
+      return updated;
+    });
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
+  // Reset Zikirmatik
   const reset = () => {
     setCount(0);
+    setHasCompleted(false);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   };
 
@@ -64,6 +82,16 @@ export default function HomeScreen() {
     }
   };
 
+  const shareZikhr = async () => {
+    try {
+      const result = await Share.share({
+        message: `${selectedZikhr.description}\n\n— Zikir Adeti: ${selectedZikhr.count}`,
+      });
+    } catch (error) {
+      console.error('Error sharing:', error);
+    }
+  };
+
   return (
     <ScrollView 
       style={styles.container} 
@@ -80,7 +108,13 @@ export default function HomeScreen() {
           <Text style={styles.zikirBarName}>{selectedZikhr.name}</Text>
           <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
         </View>
-        <Text style={styles.infoHint}>ⓘ</Text>
+        <TouchableOpacity 
+              style={styles.shareButton}
+              onPress={shareZikhr}
+              activeOpacity={0.7}
+            >
+              <MaterialIcons name="share" size={22} color="#e6e7e9" />
+        </TouchableOpacity>
       </TouchableOpacity>
 
       {/* Physical Zikirmatik Device */}
@@ -154,11 +188,11 @@ export default function HomeScreen() {
               onPress={shareHadith}
               activeOpacity={0.7}
             >
-              <MaterialIcons name="share" size={18} color="#e6e7e9" />
+              <MaterialIcons name="share" size={22} color="#e6e7e9" />
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.hadithText} numberOfLines={1} ellipsizeMode="tail">{dailyHadith.text}</Text>
+          <Text style={styles.hadithText} numberOfLines={2} ellipsizeMode="tail">{dailyHadith.text}</Text>
           <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
 
       </TouchableOpacity>
@@ -226,7 +260,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#060810ff',
+    backgroundColor: '#1f2025',
   },
   contentContainer: {
     flexGrow: 1,
@@ -334,10 +368,9 @@ const styles = StyleSheet.create({
     borderColor: '#003300',
   },
   ledDisplay: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 28,
     color: '#003300',
-    fontFamily: 'serif',
+    fontFamily: 'DSdigi',
     letterSpacing: 1.5,
   },
   progressText: {
@@ -373,9 +406,9 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   mainButtonInner: {
-    width: MAIN_BUTTON_SIZE - 7,
-    height: MAIN_BUTTON_SIZE - 7,
-    borderRadius: (MAIN_BUTTON_SIZE - 7) / 2,
+    width: MAIN_BUTTON_SIZE - 10,
+    height: MAIN_BUTTON_SIZE - 10,
+    borderRadius: (MAIN_BUTTON_SIZE - 10) / 2,
     backgroundColor: '#c7c7c7',
     justifyContent: 'center',
     alignItems: 'center',

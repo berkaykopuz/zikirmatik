@@ -5,6 +5,9 @@ import { HapticTab } from '@/components/haptic-tab';
 import { IconSymbol } from '@/components/ui/icon-symbol';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 
+import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
@@ -23,22 +26,16 @@ export default function TabLayout() {
         name="zikhrs"
         options={{
           title: 'Zikhrs',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal-circle" size={24} color={color} />,
         }}
       />
+      
       <Tabs.Screen
-        name="explore"
-        options={{
-          title: 'Explore',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Ev',
-          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-        }}
+      name="index"
+      options={{
+        title: 'Ev',
+        tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={24} color={color} />,
+      }}
       />
       <Tabs.Screen
         name="placeholder"

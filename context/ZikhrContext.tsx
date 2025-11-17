@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { DEFAULT_ZIKHR, ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
 
@@ -8,6 +8,7 @@ type ZikhrContextValue = {
   selectedZikhr: ZikhrItem;
   setSelectedZikhr: (zikhr: ZikhrItem) => void;
   addZikhr: (zikhr: ZikhrItem) => void;
+  deleteZikhr: (zikhr: ZikhrItem) => void;
 };
 
 const ZikhrContext = createContext<ZikhrContextValue | undefined>(undefined);
@@ -39,6 +40,22 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     [saveCustomZikhrs],
   );
 
+  const deleteZikhr = useCallback(
+    (zikhr: ZikhrItem) => {
+      // update the zikhr list without deleted one
+      setCustomZikhrs((prev) => {
+        const updated = prev.filter((item) => item.name !== zikhr.name);
+        void saveCustomZikhrs(updated);
+        return updated;
+      });
+      // If the deleted zikhr is currently selected, switch to default
+      if (selectedZikhr.name === zikhr.name) {
+        setSelectedZikhr(DEFAULT_ZIKHR);
+      }
+    },
+    [saveCustomZikhrs, selectedZikhr],
+  );
+
   useEffect(() => {
     const loadCustomZikhrs = async () => {
       try {
@@ -63,8 +80,9 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       selectedZikhr,
       setSelectedZikhr,
       addZikhr,
+      deleteZikhr,
     }),
-    [zikhrs, selectedZikhr, addZikhr],
+    [zikhrs, selectedZikhr, addZikhr, deleteZikhr],
   );
 
   return <ZikhrContext.Provider value={value}>{children}</ZikhrContext.Provider>;

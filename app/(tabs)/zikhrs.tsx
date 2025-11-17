@@ -1,22 +1,138 @@
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
 import { useZikhr } from '@/context/ZikhrContext';
+
+const FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteZikhrNames';
 
 export default function ZikhrsScreen() {
   const router = useRouter();
-  const { zikhrs, setSelectedZikhr, addZikhr } = useZikhr();
+  const { zikhrs, setSelectedZikhr: setRunningZikhr, addZikhr, deleteZikhr } = useZikhr();
 
   const [isModalVisible, setModalVisible] = useState(false);
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+  const [previewZikhr, setPreviewZikhr] = useState<ZikhrItem | null>(null);
   const [newZikhrName, setNewZikhrName] = useState('');
   const [newZikhrCount, setNewZikhrCount] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
+  const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
 
-  const selected = selectedIndex != null ? zikhrs[selectedIndex] : null;
+  const persistFavorites = useCallback(async (names: string[]) => {
+    try {
+      await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(names));
+    } catch (error) {
+      console.warn('Favori zikirler kaydedilemedi', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const loadFavorites = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(FAVORITES_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const onlyStrings = parsed.filter((item) => typeof item === 'string');
+            setFavoriteNames(onlyStrings);
+          }
+        }
+      } catch (error) {
+        console.warn('Favori zikirler yüklenemedi', error);
+      }
+    };
+
+    void loadFavorites();
+  }, []);
+
+  useEffect(() => {
+    setFavoriteNames((prev) => {
+      if (!prev.length) return prev;
+      const validNames = prev.filter((name) => zikhrs.some((item) => item.name === name));
+      if (validNames.length === prev.length) {
+        return prev;
+      }
+      void persistFavorites(validNames);
+      return validNames;
+    });
+  }, [zikhrs, persistFavorites]);
+
+  const favoriteSet = useMemo(() => new Set(favoriteNames), [favoriteNames]);
+
+  const favoriteItems = useMemo(
+    () =>
+      favoriteNames
+        .map((name) => zikhrs.find((item) => item.name === name))
+        .filter((item): item is ZikhrItem => Boolean(item)),
+    [favoriteNames, zikhrs],
+  );
+
+  const sortedZikhrs = useMemo(() => {
+    if (!favoriteNames.length) {
+      return zikhrs;
+    }
+    const favoritesOrdered: ZikhrItem[] = [];
+    favoriteNames.forEach((name) => {
+      const found = zikhrs.find((item) => item.name === name);
+      if (found) {
+        favoritesOrdered.push(found);
+      }
+    });
+    const remaining = zikhrs.filter((item) => !favoriteSet.has(item.name));
+    return [...favoritesOrdered, ...remaining];
+  }, [favoriteNames, favoriteSet, zikhrs]);
+
+  const addFavorite = useCallback(
+    (name: string) => {
+      setFavoriteNames((prev) => {
+        if (prev.includes(name)) {
+          return prev;
+        }
+        const updated = [name, ...prev];
+        void persistFavorites(updated);
+        return updated;
+      });
+    },
+    [persistFavorites],
+  );
+
+  const toggleFavorite = useCallback(
+    (name: string) => {
+      setFavoriteNames((prev) => {
+        const exists = prev.includes(name);
+        const updated = exists ? prev.filter((item) => item !== name) : [name, ...prev];
+        void persistFavorites(updated);
+        return updated;
+      });
+    },
+    [persistFavorites],
+  );
+
+  const removeFavorite = useCallback(
+    (name: string) => {
+      setFavoriteNames((prev) => {
+        if (!prev.includes(name)) {
+          return prev;
+        }
+        const updated = prev.filter((item) => item !== name);
+        void persistFavorites(updated);
+        return updated;
+      });
+    },
+    [persistFavorites],
+  );
+
+  const openZikhrDetails = useCallback((zikhr: ZikhrItem) => {
+    setPreviewZikhr(zikhr);
+    setModalVisible(true);
+  }, []);
+
+  const selected = previewZikhr;
+  const isUserCreated = selected ? !ZIKHR_ITEMS.some((item) => item.name === selected.name) : false;
 
   const resetCreateForm = () => {
     setNewZikhrName('');
@@ -31,12 +147,12 @@ export default function ZikhrsScreen() {
 
   const handleStartSelectedZikhr = () => {
     if (selected) {
-          setSelectedZikhr(selected);
+      setRunningZikhr(selected);
     }
 
     // reset values after selecting it
     setModalVisible(false);
-    setSelectedIndex(null);
+    setPreviewZikhr(null);
     router.replace('/'); // navigate to main screen
   }
 
@@ -61,10 +177,20 @@ export default function ZikhrsScreen() {
     };
 
     addZikhr(newZikhr);
+    addFavorite(newZikhr.name);
     closeCreateModal();
     setModalVisible(false);
-    setSelectedIndex(null);
+    setPreviewZikhr(null);
     router.replace('/');
+  };
+
+  const handleDeleteZikhr = () => {
+    if (selected) {
+      deleteZikhr(selected);
+      removeFavorite(selected.name);
+      setModalVisible(false);
+      setPreviewZikhr(null);
+    }
   };
 
   return (
@@ -82,22 +208,38 @@ export default function ZikhrsScreen() {
           <Text style={styles.addCardText}>+ Yeni Zikir Oluştur</Text>
         </TouchableOpacity>
 
-        {zikhrs.map((item, index) => (
-          <TouchableOpacity
-            key={item.name}
-            style={styles.card}
-            activeOpacity={0.85}
-            onPress={() => {
-              setSelectedIndex(index);
-              setModalVisible(true);
-            }}
-          >
-            <Text style={styles.cardTitle}>{item.name}</Text>
-            <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
-              {item.description}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {sortedZikhrs.map((item) => {
+          const isFavorite = favoriteSet.has(item.name);
+          return (
+            <TouchableOpacity
+              key={item.name}
+              style={styles.card}
+              activeOpacity={0.85}
+              onPress={() => openZikhrDetails(item)}
+            >
+              <View style={styles.cardHeader}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                <Pressable
+                  hitSlop={10}
+                  style={styles.favoriteIconButton}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    toggleFavorite(item.name);
+                  }}
+                >
+                  <Ionicons
+                    name={isFavorite ? 'star' : 'star-outline'}
+                    size={20}
+                    color={isFavorite ? '#ffbf00' : '#6f737a'}
+                  />
+                </Pressable>
+              </View>
+              <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
+                {item.description}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </ScrollView>
 
       <Modal
@@ -116,6 +258,15 @@ export default function ZikhrsScreen() {
                 <Text style={styles.modalInfoValue}>{selected?.count}</Text>
               </View>
               <View style={styles.modalButtonsRow}>
+                {isUserCreated && (
+                  <TouchableOpacity
+                    style={styles.modalDeleteButton}
+                    activeOpacity={0.9}
+                    onPress={handleDeleteZikhr}
+                  >
+                    <Text style={styles.modalDeleteButtonText}>Sil</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={styles.modalRunButton}
                   activeOpacity={0.9}
@@ -202,6 +353,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#3a3d42',
   },
+  cardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
   addCard: {
     borderStyle: 'dashed',
     borderColor: '#4a4d55',
@@ -223,6 +380,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#a7acb5',
     lineHeight: 19,
+  },
+  favoriteIconButton: {
+    padding: 6,
+    borderRadius: 999,
   },
 
   modalBackdrop: {
@@ -341,7 +502,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 8,
   },
-  
+  modalDeleteButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#ef4444',
+    borderRadius: 999,
+    minWidth: 120,
+    alignItems: 'center',
+  },
+  modalDeleteButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0b2f1b',
+  },
 });
 
 
