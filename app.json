@@ -20,20 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.berkaykopuz.zikirmatikapp",
-      "android": {
-            "fonts": [
-              {
-                "fontFamily": "DSdigi",
-                "fontDefinitions": [
-                  {
-                    "path": "./assets/fonts/DS-DIGII.ttf",
-                    "weight": 800
-                  }
-                ]
-              }
-            ]
-          }
+      "package": "com.berkaykopuz.zikirmatikapp"
     },
     "web": {
       "output": "static",
@@ -53,7 +40,36 @@
           }
         }
       ],
-      "expo-font"
+      [
+        "expo-font",
+        {
+          "fonts": [
+            "./assets/fonts/JosefinSans-Bold.ttf"
+          ],
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "DSdigi",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/DS-DIGI.ttf",
+                    "weight": 800
+                  }
+                ]
+              },
+              {
+                "fontFamily": "JosefinSans",
+                "fontDefinitions": [
+                  {
+                    "path": "./assets/fonts/JosefinSans-SemiBold.ttf",
+                    "weight": 800
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

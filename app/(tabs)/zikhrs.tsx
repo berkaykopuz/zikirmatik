@@ -12,7 +12,7 @@ const FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteZikhrNames';
 
 export default function ZikhrsScreen() {
   const router = useRouter();
-  const { zikhrs, setSelectedZikhr: setRunningZikhr, addZikhr, deleteZikhr } = useZikhr();
+  const { zikhrs, setSelectedZikhr: setRunningZikhr, addZikhr, deleteZikhr, completedZikhrs } = useZikhr();
 
   const [isModalVisible, setModalVisible] = useState(false);
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
@@ -21,6 +21,7 @@ export default function ZikhrsScreen() {
   const [newZikhrCount, setNewZikhrCount] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
+  const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
 
   const persistFavorites = useCallback(async (names: string[]) => {
     try {
@@ -193,54 +194,114 @@ export default function ZikhrsScreen() {
     }
   };
 
+  const completedHistory = useMemo(() => completedZikhrs, [completedZikhrs]);
+
+  const formatCompletedDate = useCallback((isoDate: string) => {
+    try {
+      return new Date(isoDate).toLocaleString('tr-TR', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
+    } catch (error) {
+      return new Date(isoDate).toLocaleString();
+    }
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Zikirler</Text>
-      <ScrollView contentContainerStyle={styles.list}>
-        <TouchableOpacity
-          style={[styles.card, styles.addCard]}
-          activeOpacity={0.85}
-          onPress={() => {
-            resetCreateForm();
-            setCreateModalVisible(true);
-          }}
-        >
-          <Text style={styles.addCardText}>+ Yeni Zikir Oluştur</Text>
-        </TouchableOpacity>
+      {/*ZIKIRLER TITLE <Text style={styles.title}></Text>*/} 
 
-        {sortedZikhrs.map((item) => {
-          const isFavorite = favoriteSet.has(item.name);
-          return (
-            <TouchableOpacity
-              key={item.name}
-              style={styles.card}
-              activeOpacity={0.85}
-              onPress={() => openZikhrDetails(item)}
-            >
-              <View style={styles.cardHeader}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Pressable
-                  hitSlop={10}
-                  style={styles.favoriteIconButton}
-                  onPress={(event) => {
-                    event.stopPropagation();
-                    toggleFavorite(item.name);
-                  }}
-                >
-                  <Ionicons
-                    name={isFavorite ? 'star' : 'star-outline'}
-                    size={20}
-                    color={isFavorite ? '#ffbf00' : '#6f737a'}
-                  />
-                </Pressable>
+      <View style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'available' && styles.activeTabButton]}
+          activeOpacity={0.85}
+          onPress={() => setActiveTab('available')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'available' && styles.activeTabButtonText]}>Zikirler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'completed' && styles.activeTabButton]}
+          activeOpacity={0.85}
+          onPress={() => setActiveTab('completed')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'completed' && styles.activeTabButtonText]}>
+            Tamamlananlar
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {activeTab === 'available' ? (
+        <ScrollView contentContainerStyle={styles.list}>
+          <TouchableOpacity
+            style={[styles.card, styles.addCard]}
+            activeOpacity={0.85}
+            onPress={() => {
+              resetCreateForm();
+              setCreateModalVisible(true);
+            }}
+          >
+            <Text style={styles.addCardText}>+ Yeni Zikir Oluştur</Text>
+          </TouchableOpacity>
+
+          {sortedZikhrs.map((item) => {
+            const isFavorite = favoriteSet.has(item.name);
+            return (
+              <TouchableOpacity
+                key={item.name}
+                style={styles.card}
+                activeOpacity={0.85}
+                onPress={() => openZikhrDetails(item)}
+              >
+                <View style={styles.cardHeader}>
+                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <Pressable
+                    hitSlop={10}
+                    style={styles.favoriteIconButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      toggleFavorite(item.name);
+                    }}
+                  >
+                    <Ionicons
+                      name={isFavorite ? 'star' : 'star-outline'}
+                      size={20}
+                      color={isFavorite ? '#ffbf00' : '#6f737a'}
+                    />
+                  </Pressable>
+                </View>
+                <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
+                  {item.description}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list}>
+          {completedHistory.length === 0 ? (
+            <View style={[styles.card, styles.emptyHistoryCard]}>
+              <Text style={styles.emptyHistoryTitle}>Henüz tamamlanan zikir yok</Text>
+              <Text style={styles.emptyHistoryDesc}>Bir zikri tamamladığınızda burada görebilirsiniz.</Text>
+            </View>
+          ) : (
+            completedHistory.map((entry) => (
+              <View key={entry.id} style={[styles.card, styles.completedCard]}>
+                <View style={styles.completedHeader}>
+                  <Text style={styles.cardTitle}>{entry.name}</Text>
+                  <View style={styles.completedCountBadge}>
+                    <Ionicons name="checkmark-circle" size={16} color="#0b2f1b" />
+                    <Text style={styles.completedCountText}>{entry.count} Adet Çekildi</Text>
+                  </View>
+                </View>
+                <View style={styles.completedFooter}>
+                  <Ionicons name="time-outline" size={16} color="#a7acb5" />
+                  <Text style={styles.completedMeta}>{formatCompletedDate(entry.completedAt)}</Text>
+                </View>
               </View>
-              <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
-                {item.description}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            ))
+          )}
+        </ScrollView>
+      )}
 
       <Modal
         visible={isModalVisible}
@@ -342,6 +403,34 @@ const styles = StyleSheet.create({
     marginTop: 15,
     textAlign: 'center',
   },
+  tabBar: {
+    flexDirection: 'row',
+    borderRadius: 999,
+    backgroundColor: '#2c2f34',
+    padding: 4,
+    marginBottom: 24,
+    marginTop: 24,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  activeTabButton: {
+    backgroundColor: '#ffbf00',
+  },
+  tabButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#a7acb5',
+  },
+  activeTabButtonText: {
+    color: '#0b2f1b',
+  },
   list: {
     paddingBottom: 24,
     gap: 12,
@@ -384,6 +473,52 @@ const styles = StyleSheet.create({
   favoriteIconButton: {
     padding: 6,
     borderRadius: 999,
+  },
+  completedCard: {
+    gap: 8,
+  },
+  completedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  completedCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#03c459',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  completedCountText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0b2f1b',
+  },
+  completedFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  completedMeta: {
+    fontSize: 12,
+    color: '#a7acb5',
+  },
+  emptyHistoryCard: {
+    alignItems: 'center',
+    gap: 6,
+  },
+  emptyHistoryTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#e6e7e9',
+  },
+  emptyHistoryDesc: {
+    fontSize: 13,
+    color: '#a7acb5',
+    textAlign: 'center',
   },
 
   modalBackdrop: {

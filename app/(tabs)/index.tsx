@@ -19,8 +19,7 @@ const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 export default function HomeScreen() {
-  
-  const { selectedZikhr } = useZikhr();
+  const { selectedZikhr, addCompletedZikhr } = useZikhr();
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
@@ -40,8 +39,8 @@ export default function HomeScreen() {
   // Notify user when it is completed
   const notifyCompletion = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Tebrikler!', selectedZikhr.name + " zikrini tamamladınız.");
-  }, []);
+    Alert.alert('Tebrikler!', selectedZikhr.name + ' zikrini tamamladınız.');
+  }, [selectedZikhr.name]);
 
   // Check in every step if it is completed
   const increment = () => {
@@ -49,6 +48,7 @@ export default function HomeScreen() {
       const updated = prev + 1;
       if (!hasCompleted && updated >= target && target > 0) {
         setHasCompleted(true);
+        addCompletedZikhr(selectedZikhr);
         notifyCompletion();
       }
       return updated;
@@ -105,7 +105,7 @@ export default function HomeScreen() {
         activeOpacity={0.85}
       >
         <View style={styles.zikirBarCenter}>
-          <Text style={styles.zikirBarName}>{selectedZikhr.name}</Text>
+          <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>{selectedZikhr.name}</Text>
           <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
         </View>
         <TouchableOpacity 
@@ -291,6 +291,11 @@ const styles = StyleSheet.create({
     color: '#ffbf00',
     letterSpacing: 0.5,
   },
+  zikirTextGlowing: {
+    textShadowColor: '#ca9b0fff',
+    textShadowOffset: {width: -1, height: 1},
+    textShadowRadius: 9
+  },
   zikirBarGoal: {
     fontSize: 11,
     color: '#a7acb5',
@@ -367,8 +372,10 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: '#003300',
   },
+
+  //LED TEXT
   ledDisplay: {
-    fontSize: 28,
+    fontSize: 32,
     color: '#003300',
     fontFamily: 'DSdigi',
     letterSpacing: 1.5,
@@ -501,7 +508,7 @@ const styles = StyleSheet.create({
   hadithTitle: {
     fontSize: 17,
     fontWeight: 'bold',
-    color: '#e6e7e9',
+    color: '#ffbf00',
     textAlign: 'left',
   },
   shareButton: {

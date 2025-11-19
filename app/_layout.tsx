@@ -19,6 +19,7 @@ export default function App() {
   // Use `useFonts` only if you can't use the config plugin.
   const [loaded, error] = useFonts({
     'DSdigi': require('@/assets/fonts/DS-DIGI.ttf'),
+    'JosefinSans': require('@/assets/fonts/JosefinSans-Bold.ttf'),
   });
 
   useEffect(() => {
