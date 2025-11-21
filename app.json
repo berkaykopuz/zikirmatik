@@ -69,6 +69,14 @@
             ]
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/android-icon-foreground.png",
+          "color": "#03c459",
+          "sounds": []
+        }
       ]
     ],
     "experiments": {

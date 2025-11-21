@@ -7,6 +7,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
@@ -33,10 +34,11 @@ export default function TabLayout() {
           marginTop: 4,
         },
       }}>
+        
       <Tabs.Screen
         name="zikhrs"
         options={{
-          title: 'Zikhrs',
+          title: 'Zikirler',
           tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal-circle" size={24} color={color} />,
         }}
       />
@@ -44,10 +46,19 @@ export default function TabLayout() {
       <Tabs.Screen
       name="index"
       options={{
-        title: 'Ev',
+        title: 'Ana Sayfa',
         tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={24} color={color} />,
       }}
       />
+
+      <Tabs.Screen
+      name="reminder"
+      options={{
+        title: 'Hatırlatıcı',
+        tabBarIcon: ({ color }) => <MaterialIcons name="alarm" size={24} color={color} />,
+      }}
+      />
+
       <Tabs.Screen
         name="placeholder"
         options={{
