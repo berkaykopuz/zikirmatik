@@ -1,22 +1,28 @@
-import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import {
-  Alert,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useZikhr } from '@/context/ZikhrContext';
+
+const REMINDERS_STORAGE_KEY = '@zikirmatik/reminders';
+
+type Reminder = {
+  id: string;
+  zikhrName: string;
+  scheduleType: 'daily' | 'relative';
+  time?: string; // For daily reminders (HH:mm format)
+  offsetValue?: number; // For relative reminders
+  offsetUnit?: 'minute' | 'hour' | 'day'; // For relative reminders
+  scheduledFor?: string; // ISO date string for when the reminder is scheduled
+  message?: string;
+  enabled: boolean;
+  notificationId?: string; // ID from expo-notifications
+  createdAt: string; // ISO date string
+};
+
+type PermissionStatus = 'undetermined' | 'granted' | 'denied';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -24,329 +30,327 @@ Notifications.setNotificationHandler({
     shouldPlaySound: true,
     shouldSetBadge: false,
     shouldShowBanner: true,
-    shouldShowList: false,
+    shouldShowList: true,
   }),
 });
 
-type ReminderScheduleType = 'daily' | 'relative';
-type ReminderOffsetUnit = 'hour' | 'day';
+function PermissionStatusComponent({ status }: { status: PermissionStatus }) {
+  if (status === 'granted') return null;
 
-type Reminder = {
-  id: string;
-  zikhrName: string;
-  time?: string; // HH:mm
-  message?: string;
-  enabled: boolean;
-  notificationId?: string;
-  createdAt: string;
-  scheduleType: ReminderScheduleType;
-  offsetValue?: number;
-  offsetUnit?: ReminderOffsetUnit;
-  scheduledFor?: string;
-  repeats: boolean;
-};
-
-const REMINDERS_STORAGE_KEY = '@zikirmatik/reminders';
-const CHANNEL_ID = 'zikhr-reminders';
+  return (
+    <View style={[styles.permissionPill, status === 'denied' && styles.permissionPillError]}>
+      <MaterialIcons
+        name={status === 'denied' ? 'error-outline' : 'info-outline'}
+        size={16}
+        color="#e6e7e9"
+        style={styles.permissionIcon}
+      />
+      <Text style={styles.permissionText}>
+        {status === 'denied'
+          ? 'Bildirim izni reddedildi. Ayarlardan izin verin.'
+          : 'Bildirimler için izin gerekli.'}
+      </Text>
+    </View>
+  );
+}
 
 export default function ReminderScreen() {
   const { zikhrs } = useZikhr();
-  const [selectedZikhrName, setSelectedZikhrName] = useState(zikhrs[0]?.name ?? '');
-  const [isZikhrModalVisible, setIsZikhrModalVisible] = useState(false);
-  const [timeInput, setTimeInput] = useState('08:00');
-  const [scheduleType, setScheduleType] = useState<ReminderScheduleType>('daily');
-  const [offsetValue, setOffsetValue] = useState('1');
-  const [offsetUnit, setOffsetUnit] = useState<ReminderOffsetUnit>('day');
-  const [customMessage, setCustomMessage] = useState('');
   const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [permissionStatus, setPermissionStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [scheduleType, setScheduleType] = useState<'daily' | 'relative'>('daily');
+  const [timeInput, setTimeInput] = useState('');
+  const [offsetValue, setOffsetValue] = useState('');
+  const [offsetUnit, setOffsetUnit] = useState<'minute' | 'hour' | 'day'>('hour');
+  const [selectedZikhrName, setSelectedZikhrName] = useState<string>('');
+  const [customMessage, setCustomMessage] = useState('');
+  const [isZikhrModalVisible, setIsZikhrModalVisible] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('undetermined');
+  const [infoMessage, setInfoMessage] = useState<string>('');
 
-  const zikhrNames = useMemo(() => zikhrs.map((item) => item.name), [zikhrs]);
+  const zikhrNames = useMemo(() => zikhrs.map((z) => z.name), [zikhrs]);
 
-  const persistReminders = useCallback(async (data: Reminder[]) => {
-    try {
-      await AsyncStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(data));
-    } catch (error) {
-      console.warn('Hatırlatıcılar kaydedilemedi', error);
-    }
-  }, []);
-
-  const ensurePermissions = useCallback(async () => {
-    try {
-      const current = await Notifications.getPermissionsAsync();
-      if (current.status === 'granted') {
-        setPermissionStatus('granted');
-        return true;
-      }
-      const result = await Notifications.requestPermissionsAsync();
-      const granted = result.status === 'granted';
-      setPermissionStatus(granted ? 'granted' : 'denied');
-      return granted;
-    } catch (error) {
-      console.warn('İzinler alınamadı', error);
-      setPermissionStatus('denied');
-      return false;
-    }
-  }, []);
-
-  const scheduleReminderNotification = useCallback(
-    async (data: {
-      zikhrName: string;
-      scheduleType: ReminderScheduleType;
-      time?: string;
-      message?: string;
-      offsetValue?: number;
-      offsetUnit?: ReminderOffsetUnit;
-    }) => {
-      const content = {
-        title: `${data.zikhrName} zamanı ⏰`,
-        body: data.message?.trim() || `${data.zikhrName} zikrini yapmayı unutma.`,
-        sound: 'default' as const,
-      };
-
-      if (data.scheduleType === 'daily' && data.time) {
-        const { hour, minute } = parseTime(data.time);
-        const trigger: Notifications.DailyTriggerInput = {
-          hour,
-          minute,
-          repeats: true,
-          channelId: Platform.OS === 'android' ? CHANNEL_ID : undefined,
-        };
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content,
-          trigger,
-        });
-        return { notificationId, scheduledFor: getNextOccurrenceISO(data.time) };
-      }
-
-      const offset = calculateOffsetSeconds(data.offsetValue, data.offsetUnit);
-      const triggerDate = new Date(Date.now() + offset * 1000);
-      const notificationId = await Notifications.scheduleNotificationAsync({
-        content,
-        trigger: triggerDate,
-      });
-      return { notificationId, scheduledFor: triggerDate.toISOString() };
-    },
-    [],
-  );
-
-  const cancelNotificationIfNeeded = useCallback(async (notificationId?: string) => {
-    if (!notificationId) return;
-    try {
-      await Notifications.cancelScheduledNotificationAsync(notificationId);
-    } catch (error) {
-      console.warn('Bildirim iptal edilemedi', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    void (async () => {
-      const hasPermission = await ensurePermissions();
-      if (!hasPermission) {
-        Alert.alert(
-          'İzin gerekli',
-          'Hatırlatıcılar için bildirim izni gerekli. Lütfen ayarlardan bildirime izin verin.',
-        );
-      }
-    })();
-  }, [ensurePermissions]);
-
-  useEffect(() => {
-    if (Platform.OS === 'android') {
-      void Notifications.setNotificationChannelAsync(CHANNEL_ID, {
-        name: 'Zikir Hatırlatıcıları',
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: 'default',
-        vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#03c459',
-      });
-    }
-  }, []);
-
+  // Load reminders from storage
   useEffect(() => {
     const loadReminders = async () => {
       try {
         const stored = await AsyncStorage.getItem(REMINDERS_STORAGE_KEY);
-        if (!stored) return;
-        const parsed: Reminder[] = JSON.parse(stored);
-        if (Array.isArray(parsed)) {
-          const normalized = parsed.map((item) => ({
-            ...item,
-            scheduleType: item.scheduleType ?? 'daily',
-            repeats: item.repeats ?? true,
-          }));
-          setReminders(normalized);
-
-          // Make sure reminders have scheduled notifications
-          normalized.forEach((item) => {
-            if (item.enabled && !item.notificationId) {
-              scheduleReminderNotification({
-                zikhrName: item.zikhrName,
-                scheduleType: item.scheduleType,
-                time: item.time,
-                message: item.message,
-                offsetValue: item.offsetValue,
-                offsetUnit: item.offsetUnit,
-              })
-                .then(({ notificationId, scheduledFor }) => {
-                  setReminders((prev) => {
-                    const updated = prev.map((reminder) =>
-                      reminder.id === item.id
-                        ? { ...reminder, notificationId, scheduledFor: scheduledFor ?? reminder.scheduledFor }
-                        : reminder,
-                    );
-                    void persistReminders(updated);
-                    return updated;
-                  });
-                })
-                .catch((error) => console.warn('Hatırlatıcı tekrar planlanamadı', error));
-            }
-          });
+        if (stored) {
+          const parsed: Reminder[] = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setReminders(parsed);
+          }
         }
       } catch (error) {
-        console.warn('Hatırlatıcılar yüklenemedi', error);
+        console.warn('Failed to load reminders from storage', error);
       }
     };
 
     void loadReminders();
-  }, [persistReminders, scheduleReminderNotification]);
+  }, []);
 
+  // Check notification permissions
   useEffect(() => {
-    setSelectedZikhrName((prev) => prev || zikhrNames[0] || '');
-  }, [zikhrNames]);
+    const checkPermissions = async () => {
+      const { status } = await Notifications.getPermissionsAsync();
+      setPermissionStatus(status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined');
+    };
 
-  useEffect(() => {
-    if (!infoMessage) return;
-    const timeout = setTimeout(() => setInfoMessage(null), 3500);
-    return () => clearTimeout(timeout);
-  }, [infoMessage]);
+    void checkPermissions();
+  }, []);
 
+  // Save reminders to storage
+  const saveReminders = useCallback(async (items: Reminder[]) => {
+    try {
+      await AsyncStorage.setItem(REMINDERS_STORAGE_KEY, JSON.stringify(items));
+    } catch (error) {
+      console.warn('Failed to save reminders to storage', error);
+    }
+  }, []);
+
+  // Format time string (HH:mm)
+  const formatTimeString = (input: string): string => {
+    const cleaned = input.replace(/[^0-9]/g, '');
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 2) return cleaned;
+    return `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
+  };
+
+  // Format date time for display
+  const formatDateTime = (dateString?: string): string => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate();
+    const monthNames = [
+      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+    ];
+    const month = monthNames[date.getMonth()];
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${day} ${month} ${hours}:${minutes}`;
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string): string => {
+    const date = new Date(dateString);
+    const day = String(date.getDate()).padStart(2, '0');
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  };
+
+  // Format relative label
+  const formatRelativeLabel = (value?: number, unit?: 'minute' | 'hour' | 'day'): string => {
+    if (!value || !unit) return '';
+    if (unit === 'minute') return `${value} dakika sonra`;
+    if (unit === 'hour') return `${value} saat sonra`;
+    return `${value} gün sonra`;
+  };
+
+  // Calculate next scheduled time for daily reminder
+  const calculateNextDailyTime = (timeStr: string): Date => {
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    const now = new Date();
+    const scheduled = new Date();
+    scheduled.setHours(hours, minutes || 0, 0, 0);
+
+    // If the time has passed today, schedule for tomorrow
+    if (scheduled <= now) {
+      scheduled.setDate(scheduled.getDate() + 1);
+    }
+
+    return scheduled;
+  };
+
+  // Calculate scheduled time for relative reminder
+  const calculateRelativeTime = (value: number, unit: 'minute' | 'hour' | 'day'): Date => {
+    const now = new Date();
+    const scheduled = new Date(now);
+    if (unit === 'minute') {
+      scheduled.setMinutes(scheduled.getMinutes() + value);
+    } else if (unit === 'hour') {
+      scheduled.setHours(scheduled.getHours() + value);
+    } else {
+      scheduled.setDate(scheduled.getDate() + value);
+    }
+    return scheduled;
+  };
+
+  // Schedule notification
+  const scheduleNotification = async (reminder: Reminder): Promise<string | null> => {
+    try {
+      let trigger: Notifications.NotificationTriggerInput | null = null;
+      let scheduledTime: Date;
+
+      if (reminder.scheduleType === 'daily') {
+        if (!reminder.time) return null;
+        scheduledTime = calculateNextDailyTime(reminder.time);
+        const [hours, minutes] = reminder.time.split(':').map(Number);
+        trigger = {
+          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+          hour: hours,
+          minute: minutes || 0,
+          repeats: true,
+        };
+      } else {
+        if (!reminder.offsetValue || !reminder.offsetUnit) return null;
+        scheduledTime = calculateRelativeTime(reminder.offsetValue, reminder.offsetUnit);
+        trigger = {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: scheduledTime,
+        };
+      }
+
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: reminder.zikhrName,
+          body: reminder.message || 'Zikir zamanı geldi!',
+          sound: true,
+          data: { reminderId: reminder.id },
+        },
+        trigger,
+      });
+
+      return notificationId;
+    } catch (error) {
+      console.warn('Failed to schedule notification', error);
+      return null;
+    }
+  };
+
+  // Add reminder
   const addReminder = async () => {
     if (!selectedZikhrName) {
-      Alert.alert('Zikir gerekli', 'Lütfen bir zikir seçin.');
+      setInfoMessage('Lütfen bir zikir seçin.');
       return;
     }
 
-    let parsedTime: string | null = null;
-    let parsedOffset: number | null = null;
     if (scheduleType === 'daily') {
-      parsedTime = validateTimeInput(timeInput);
-      if (!parsedTime) {
-        Alert.alert('Geçersiz saat', 'Lütfen HH:MM formatında bir saat girin.');
+      if (!timeInput || !timeInput.match(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/)) {
+        setInfoMessage('Lütfen geçerli bir saat girin (örn: 08:00).');
         return;
       }
     } else {
-      parsedOffset = validateOffsetInput(offsetValue, offsetUnit);
-      if (!parsedOffset) {
-        Alert.alert(
-          'Geçersiz süre',
-          offsetUnit === 'hour'
-            ? 'Lütfen 1 ile 240 saat arasında bir değer girin.'
-            : 'Lütfen 1 ile 30 gün arasında bir değer girin.',
-        );
+      const offsetNum = parseInt(offsetValue, 10);
+      if (!offsetValue || isNaN(offsetNum) || offsetNum <= 0) {
+        setInfoMessage('Lütfen geçerli bir süre girin.');
         return;
       }
     }
 
-    const hasPermission = await ensurePermissions();
-    if (!hasPermission) {
-      Alert.alert('İzin gerekli', 'Bildirim izni olmadan hatırlatıcı oluşturulamaz.');
-      return;
+    // Request permissions if needed
+    if (permissionStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      if (status !== 'granted') {
+        setPermissionStatus('denied');
+        setInfoMessage('Bildirim izni gerekli.');
+        return;
+      }
+      setPermissionStatus('granted');
     }
 
     setIsSubmitting(true);
+    setInfoMessage('');
+
     try {
-      const { notificationId, scheduledFor } = await scheduleReminderNotification({
-        zikhrName: selectedZikhrName,
-        scheduleType,
-        time: parsedTime ?? undefined,
-        message: customMessage,
-        offsetValue: parsedOffset ?? undefined,
-        offsetUnit: scheduleType === 'relative' ? offsetUnit : undefined,
-      });
       const newReminder: Reminder = {
         id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
         zikhrName: selectedZikhrName,
-        time: parsedTime ?? undefined,
+        scheduleType,
+        time: scheduleType === 'daily' ? timeInput : undefined,
+        offsetValue: scheduleType === 'relative' ? parseInt(offsetValue, 10) : undefined,
+        offsetUnit: scheduleType === 'relative' ? offsetUnit : undefined,
         message: customMessage.trim() || undefined,
         enabled: true,
-        notificationId,
         createdAt: new Date().toISOString(),
-        scheduleType,
-        offsetValue: parsedOffset ?? undefined,
-        offsetUnit: scheduleType === 'relative' ? offsetUnit : undefined,
-        scheduledFor,
-        repeats: scheduleType === 'daily',
       };
 
-      setReminders((prev) => {
-        const updated = [newReminder, ...prev];
-        void persistReminders(updated);
-        return updated;
-      });
+      // Calculate scheduledFor
+      if (scheduleType === 'daily') {
+        newReminder.scheduledFor = calculateNextDailyTime(timeInput).toISOString();
+      } else {
+        newReminder.scheduledFor = calculateRelativeTime(
+          parseInt(offsetValue, 10),
+          offsetUnit,
+        ).toISOString();
+      }
 
+      // Schedule notification
+      const notificationId = await scheduleNotification(newReminder);
+      if (notificationId) {
+        newReminder.notificationId = notificationId;
+      }
+
+      const updated = [...reminders, newReminder];
+      setReminders(updated);
+      await saveReminders(updated);
+
+      // Reset form
+      setSelectedZikhrName('');
+      setTimeInput('');
+      setOffsetValue('');
       setCustomMessage('');
-      setInfoMessage('Hatırlatıcı kaydedildi.');
+      setScheduleType('daily');
+      setInfoMessage('Hatırlatıcı başarıyla oluşturuldu!');
     } catch (error) {
-      console.warn('Hatırlatıcı eklenemedi', error);
-      Alert.alert('Hata', 'Hatırlatıcı oluşturulurken bir sorun oluştu.');
+      console.warn('Failed to add reminder', error);
+      setInfoMessage('Hatırlatıcı oluşturulurken bir hata oluştu.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const toggleReminder = async (reminder: Reminder, nextValue: boolean) => {
-    if (nextValue) {
-      const hasPermission = await ensurePermissions();
-      if (!hasPermission) {
-        Alert.alert('İzin gerekli', 'Bildirim izni olmadan hatırlatıcı açılamaz.');
-        return;
+  // Delete reminder
+  const deleteReminder = async (reminder: Reminder) => {
+    try {
+      // Cancel notification if exists
+      if (reminder.notificationId) {
+        await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
       }
-      try {
-        const { notificationId, scheduledFor } = await scheduleReminderNotification({
-          zikhrName: reminder.zikhrName,
-          scheduleType: reminder.scheduleType,
-          time: reminder.time,
-          message: reminder.message,
-          offsetValue: reminder.offsetValue,
-          offsetUnit: reminder.offsetUnit,
-        });
-        setReminders((prev) => {
-          const updated = prev.map((item) =>
-            item.id === reminder.id
-              ? { ...item, enabled: true, notificationId, scheduledFor: scheduledFor ?? item.scheduledFor }
-              : item,
-          );
-          void persistReminders(updated);
-          return updated;
-        });
-      } catch (error) {
-        console.warn('Hatırlatıcı açılamadı', error);
-        Alert.alert('Hata', 'Hatırlatıcı tekrar planlanamadı.');
-      }
-      return;
-    }
 
-    await cancelNotificationIfNeeded(reminder.notificationId);
-    setReminders((prev) => {
-      const updated = prev.map((item) =>
-        item.id === reminder.id ? { ...item, enabled: false, notificationId: undefined } : item,
-      );
-      void persistReminders(updated);
-      return updated;
-    });
+      const updated = reminders.filter((r) => r.id !== reminder.id);
+      setReminders(updated);
+      await saveReminders(updated);
+    } catch (error) {
+      console.warn('Failed to delete reminder', error);
+    }
   };
 
-  const deleteReminder = async (reminder: Reminder) => {
-    await cancelNotificationIfNeeded(reminder.notificationId);
-    setReminders((prev) => {
-      const updated = prev.filter((item) => item.id !== reminder.id);
-      void persistReminders(updated);
-      return updated;
-    });
-    setInfoMessage('Hatırlatıcı silindi.');
+  // Toggle reminder
+  const toggleReminder = async (reminder: Reminder, enabled: boolean) => {
+    try {
+      const updated = reminders.map((r) => {
+        if (r.id === reminder.id) {
+          const updatedReminder = { ...r, enabled };
+          if (enabled) {
+            // Reschedule notification
+            scheduleNotification(updatedReminder).then((notificationId) => {
+              if (notificationId) {
+                const finalUpdated = reminders.map((rem) =>
+                  rem.id === reminder.id ? { ...rem, enabled, notificationId } : rem,
+                );
+                setReminders(finalUpdated);
+                void saveReminders(finalUpdated);
+              }
+            });
+          } else {
+            // Cancel notification
+            if (r.notificationId) {
+              Notifications.cancelScheduledNotificationAsync(r.notificationId);
+            }
+            updatedReminder.notificationId = undefined;
+          }
+          return updatedReminder;
+        }
+        return r;
+      });
+
+      setReminders(updated);
+      await saveReminders(updated);
+    } catch (error) {
+      console.warn('Failed to toggle reminder', error);
+    }
   };
 
   return (
@@ -424,6 +428,12 @@ export default function ReminderScreen() {
               />
               <View style={styles.unitToggle}>
                 <TouchableOpacity
+                  style={[styles.unitButton, offsetUnit === 'minute' && styles.unitButtonActive]}
+                  onPress={() => setOffsetUnit('minute')}
+                >
+                  <Text style={[styles.unitButtonText, offsetUnit === 'minute' && styles.unitButtonTextActive]}>Dakika</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
                   style={[styles.unitButton, offsetUnit === 'hour' && styles.unitButtonActive]}
                   onPress={() => setOffsetUnit('hour')}
                 >
@@ -438,7 +448,8 @@ export default function ReminderScreen() {
               </View>
             </View>
             <Text style={styles.helperText}>
-              Hatırlatma {offsetValue || '1'} {offsetUnit === 'hour' ? 'saat' : 'gün'} sonra sadece bir kez gönderilir.
+              Hatırlatma {offsetValue || '1'}{' '}
+              {offsetUnit === 'minute' ? 'dakika' : offsetUnit === 'hour' ? 'saat' : 'gün'} sonra sadece bir kez gönderilir.
             </Text>
           </View>
         )}
@@ -467,7 +478,7 @@ export default function ReminderScreen() {
           </Text>
         </TouchableOpacity>
 
-        <PermissionStatus status={permissionStatus} />
+        <PermissionStatusComponent status={permissionStatus} />
         {infoMessage ? <Text style={styles.infoText}>{infoMessage}</Text> : null}
       </View>
 
@@ -508,7 +519,7 @@ export default function ReminderScreen() {
                 {'  '}| Oluşturuldu: {formatDate(reminder.createdAt)}
               </Text>
               <TouchableOpacity onPress={() => void deleteReminder(reminder)} hitSlop={10}>
-                <MaterialIcons name="delete-forever" size={20} color="#ff6b6b" />
+                <MaterialIcons name="delete-forever" size={24} color="#ff6b6b" />
               </TouchableOpacity>
             </View>
           </View>
@@ -562,114 +573,7 @@ export default function ReminderScreen() {
   );
 }
 
-function validateTimeInput(value: string): string | null {
-  if (!value) return null;
-  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
-  if (!match) return null;
-  const hour = Number(match[1]);
-  const minute = Number(match[2]);
-  if (Number.isNaN(hour) || Number.isNaN(minute)) {
-    return null;
-  }
-  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-    return null;
-  }
-  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-}
 
-function parseTime(time: string) {
-  const [hourStr, minuteStr] = time.split(':');
-  return { hour: Number(hourStr), minute: Number(minuteStr) };
-}
-
-function formatTimeString(value: string) {
-  const match = /^(\d{1,2}):?(\d{0,2})/.exec(value.trim());
-  if (!match) return value;
-  const hour = Math.min(23, Math.max(0, Number(match[1])));
-  const minute = Math.min(59, Math.max(0, Number(match[2] || '0')));
-  return `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-}
-
-function formatDate(dateString: string) {
-  try {
-    return new Date(dateString).toLocaleDateString('tr-TR', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric',
-    });
-  } catch (error) {
-    return dateString;
-  }
-}
-
-function formatDateTime(dateString?: string) {
-  if (!dateString) return '-';
-  try {
-    return new Date(dateString).toLocaleString('tr-TR', {
-      day: '2-digit',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  } catch (error) {
-    return dateString;
-  }
-}
-
-function validateOffsetInput(value: string, unit: ReminderOffsetUnit): number | null {
-  if (!value) return null;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return null;
-  if (parsed <= 0) return null;
-  const max = unit === 'hour' ? 240 : 30;
-  if (parsed > max) return null;
-  return Math.round(parsed);
-}
-
-function calculateOffsetSeconds(value?: number, unit?: ReminderOffsetUnit) {
-  if (!value || !unit) {
-    return 3600;
-  }
-  const multiplier = unit === 'hour' ? 3600 : 86400;
-  return value * multiplier;
-}
-
-function getNextOccurrenceISO(time: string) {
-  const { hour, minute } = parseTime(time);
-  const now = new Date();
-  const target = new Date(now);
-  target.setHours(hour, minute, 0, 0);
-  if (target <= now) {
-    target.setDate(target.getDate() + 1);
-  }
-  return target.toISOString();
-}
-
-function formatRelativeLabel(value?: number, unit?: ReminderOffsetUnit) {
-  if (!value || !unit) return 'Tek seferlik';
-  const unitLabel = unit === 'hour' ? 'saat' : 'gün';
-  return `${value} ${unitLabel} sonra`;
-}
-
-function PermissionStatus({ status }: { status: 'unknown' | 'granted' | 'denied' }) {
-  if (status === 'unknown') {
-    return null;
-  }
-  const isGranted = status === 'granted';
-  return (
-    <View style={[styles.permissionPill, !isGranted && styles.permissionPillError]}>
-      <MaterialIcons
-        style={styles.permissionIcon}
-        name={isGranted ? 'notifications-active' : 'notifications-off'}
-        size={16}
-        color="#e6e7e9"
-      />
-      <Text style={styles.permissionText}>
-        {isGranted ? 'Bildirim izni verildi' : 'Bildirim izni reddedildi'}
-      </Text>
-    </View>
-  );
-}
 
 const styles = StyleSheet.create({
   container: {
