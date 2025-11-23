@@ -53,7 +53,6 @@ export default function HomeScreen() {
       }
       return updated;
     });
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
   };
 
   // Reset Zikirmatik
@@ -93,8 +92,21 @@ export default function HomeScreen() {
   };
 
   return (
+    <View style={styles.container}>
+      {/* Settings Icon */}
+      <TouchableOpacity 
+        style={styles.settingsButton}
+        onPress={() => {
+          // TODO: Navigate to settings screen
+          Alert.alert('Ayarlar', 'Ayarlar sayfası yakında eklenecek.');
+        }}
+        activeOpacity={0.5}
+      >
+        <MaterialIcons name="settings" size={30} color="#e6e7e9" />
+      </TouchableOpacity>
+
     <ScrollView 
-      style={styles.container} 
+      style={styles.scrollView} 
       contentContainerStyle={styles.contentContainer}
       showsVerticalScrollIndicator={false}
     >
@@ -108,13 +120,13 @@ export default function HomeScreen() {
           <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>{selectedZikhr.name}</Text>
           <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
         </View>
-        <TouchableOpacity 
+        {/*<TouchableOpacity           Dikhr sharing can be put in some other time.
               style={styles.shareButton}
               onPress={shareZikhr}
               activeOpacity={0.7}
             >
               <MaterialIcons name="share" size={22} color="#e6e7e9" />
-        </TouchableOpacity>
+        </TouchableOpacity>*/}
       </TouchableOpacity>
 
       {/* Physical Zikirmatik Device */}
@@ -154,15 +166,20 @@ export default function HomeScreen() {
                 transform={`rotate(-90 ${PROGRESS_RING_SIZE / 2} ${PROGRESS_RING_SIZE / 2})`}
               />
             </Svg>
-            <TouchableOpacity 
-              style={styles.mainButton}
+            <Pressable 
+              style={({ pressed }) => [
+                styles.mainButton,
+                pressed && styles.mainButtonPressed
+              ]}
+              onPressIn={() => {
+                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              }}
               onPress={increment}
-              activeOpacity={0.8}
             >
               <View style={styles.mainButtonInner}>
                 <View style={styles.mainButtonPattern} />
               </View>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           {/* Reset Button (Small Side Button) */}
@@ -184,11 +201,14 @@ export default function HomeScreen() {
           <View style={styles.hadithHeader}>
             <Text style={styles.hadithTitle}>Günün Hadisi</Text>
             <TouchableOpacity 
-              style={styles.shareButton}
-              onPress={shareHadith}
-              activeOpacity={0.7}
+              style={styles.hadithShareButton}
+              onPress={(e) => {
+                e.stopPropagation();
+                shareHadith();
+              }}
+              activeOpacity={0.85}
             >
-              <MaterialIcons name="share" size={22} color="#e6e7e9" />
+              <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
             </TouchableOpacity>
           </View>
 
@@ -253,7 +273,7 @@ export default function HomeScreen() {
 
 
     </ScrollView>
-
+    </View>
   );
 }
 
@@ -261,6 +281,17 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#1f2025',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  settingsButton: {
+    position: 'absolute',
+    top: 45,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+    borderRadius: 8,
   },
   contentContainer: {
     flexGrow: 1,
@@ -412,6 +443,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
   },
+  mainButtonPressed: {
+    transform: [{ scale: 0.98 }],
+    opacity: 0.9,
+  },
   mainButtonInner: {
     width: MAIN_BUTTON_SIZE - 10,
     height: MAIN_BUTTON_SIZE - 10,
@@ -515,6 +550,20 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 1,
     borderRadius: 4,
+  },
+  hadithShareButton: {
+    position: 'absolute',
+    right: 0,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#ffbf00',
+    borderRadius: 6,
+  },
+  hadithShareButtonText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#0b2f1b',
+    letterSpacing: 0.5,
   },
   hadithText: {
     fontSize: 14,

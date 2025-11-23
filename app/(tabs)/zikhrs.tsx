@@ -374,9 +374,6 @@ export default function ZikhrsScreen() {
               </View>
               {createError ? <Text style={styles.modalErrorText}>{createError}</Text> : null}
               <View style={styles.modalButtonsRow}>
-                <TouchableOpacity style={styles.modalCancelButton} activeOpacity={0.85} onPress={closeCreateModal}>
-                  <Text style={styles.modalCancelButtonText}>İptal</Text>
-                </TouchableOpacity>
                 <TouchableOpacity style={styles.modalRunButton} activeOpacity={0.9} onPress={handleCreateZikhr}>
                   <Text style={styles.modalRunButtonText}>Başlat</Text>
                 </TouchableOpacity>

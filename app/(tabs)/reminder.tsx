@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useZikhr } from '@/context/ZikhrContext';
@@ -57,6 +57,7 @@ function PermissionStatusComponent({ status }: { status: PermissionStatus }) {
 export default function ReminderScreen() {
   const { zikhrs } = useZikhr();
   const [reminders, setReminders] = useState<Reminder[]>([]);
+  const remindersRef = useRef<Reminder[]>([]);
   const [scheduleType, setScheduleType] = useState<'daily' | 'relative'>('daily');
   const [timeInput, setTimeInput] = useState('');
   const [offsetValue, setOffsetValue] = useState('');
@@ -69,6 +70,11 @@ export default function ReminderScreen() {
   const [infoMessage, setInfoMessage] = useState<string>('');
 
   const zikhrNames = useMemo(() => zikhrs.map((z) => z.name), [zikhrs]);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    remindersRef.current = reminders;
+  }, [reminders]);
 
   // Load reminders from storage
   useEffect(() => {
@@ -107,6 +113,35 @@ export default function ReminderScreen() {
       console.warn('Failed to save reminders to storage', error);
     }
   }, []);
+
+  // Listen for notifications and auto-remove one-time reminders
+  useEffect(() => {
+    const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
+      const reminderId = notification.request.content.data?.reminderId as string | undefined;
+      if (!reminderId) return;
+
+      // Find the reminder using the ref to get the latest state
+      const reminder = remindersRef.current.find((r) => r.id === reminderId);
+      if (!reminder) return;
+
+      // If it's a one-time reminder (relative), delete it after notification is sent
+      if (reminder.scheduleType === 'relative') {
+        // Cancel notification if exists
+        if (reminder.notificationId) {
+          await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
+        }
+
+        // Remove from state and storage
+        const updated = remindersRef.current.filter((r) => r.id !== reminder.id);
+        setReminders(updated);
+        await saveReminders(updated);
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [saveReminders]);
 
   // Format time string (HH:mm)
   const formatTimeString = (input: string): string => {
@@ -512,13 +547,19 @@ export default function ReminderScreen() {
             </View>
             {reminder.message ? <Text style={styles.reminderMessage}>{reminder.message}</Text> : null}
             <View style={styles.reminderFooter}>
-              <Text style={styles.reminderMeta}>
-                {reminder.scheduleType === 'daily'
-                  ? `Günlük tekrar${reminder.scheduledFor ? ` | Sonraki: ${formatDateTime(reminder.scheduledFor)}` : ''}`
-                  : `Tek seferlik | ${formatRelativeLabel(reminder.offsetValue, reminder.offsetUnit)}`}
-                {'  '}| Oluşturuldu: {formatDate(reminder.createdAt)}
-              </Text>
-              <TouchableOpacity onPress={() => void deleteReminder(reminder)} hitSlop={10}>
+              <View style={styles.reminderMetaContainer}>
+                <Text style={styles.reminderMeta}>
+                  {reminder.scheduleType === 'daily'
+                    ? `Günlük tekrar${reminder.scheduledFor ? ` | Sonraki: ${formatDateTime(reminder.scheduledFor)}` : ''}`
+                    : `Tek seferlik | ${formatRelativeLabel(reminder.offsetValue, reminder.offsetUnit)}`}
+                  {'  '}| Oluşturulduğu Tarih: {formatDate(reminder.createdAt)}
+                </Text>
+              </View>
+              <TouchableOpacity 
+                style={styles.deleteButton}
+                onPress={() => void deleteReminder(reminder)} 
+                hitSlop={10}
+              >
                 <MaterialIcons name="delete-forever" size={24} color="#ff6b6b" />
               </TouchableOpacity>
             </View>
@@ -880,9 +921,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 12,
   },
+  reminderMetaContainer: {
+    flex: 1,
+    flexShrink: 1,
+    marginRight: 12,
+  },
   reminderMeta: {
     fontSize: 11,
     color: '#a7acb5',
+  },
+  deleteButton: {
+    flexShrink: 0,
   },
   permissionText: {
     color: '#e6e7e9',
