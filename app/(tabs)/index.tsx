@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,6 +26,7 @@ export default function HomeScreen() {
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const [isSoundPlaying, setIsSoundPlaying] = useState(true);
 
   useEffect(() => {
     setTarget(selectedZikhr.count ?? DAILY_TARGET);
@@ -91,19 +93,43 @@ export default function HomeScreen() {
     }
   };
 
+  // Play n Pause the music automatically
+  const player = useAudioPlayer(require('@/assets/music/ney.mp3'));
+
+  useEffect(() => {
+    if (isSoundPlaying) {
+      player.play();
+    } else {
+      player.pause();
+    }
+
+    return () => {
+      player.pause();
+    };
+  }, [isSoundPlaying, player]);
+
   return (
     <View style={styles.container}>
-      {/* Settings Icon */}
-      <TouchableOpacity 
-        style={styles.settingsButton}
-        onPress={() => {
-          // TODO: Navigate to settings screen
-          Alert.alert('Ayarlar', 'Ayarlar sayfası yakında eklenecek.');
-        }}
-        activeOpacity={0.5}
-      >
-        <MaterialIcons name="settings" size={30} color="#e6e7e9" />
-      </TouchableOpacity>
+      {/* Sound and Settings Icons */}
+      <View style={styles.topButtonsRow}>
+        <TouchableOpacity
+          style={[styles.iconButton, styles.soundButton]}
+          onPress={() => setIsSoundPlaying((prev) => !prev)}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name={isSoundPlaying ? 'volume-up' : 'volume-off'} size={30} color="#e6e7e9" />
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.iconButton}
+          onPress={() => {
+            // TODO: Navigate to settings screen
+            Alert.alert('Ayarlar', 'Ayarlar sayfası yakında eklenecek.');
+          }}
+          activeOpacity={0.5}
+        >
+          <MaterialIcons name="settings" size={30} color="#e6e7e9" />
+        </TouchableOpacity>
+      </View>
 
     <ScrollView 
       style={styles.scrollView} 
@@ -285,13 +311,22 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  settingsButton: {
+  topButtonsRow: {
     position: 'absolute',
     top: 45,
+    left: 20,
     right: 20,
     zIndex: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  iconButton: {
     padding: 8,
     borderRadius: 8,
+  },
+  soundButton: {
+    marginRight: 12,
   },
   contentContainer: {
     flexGrow: 1,

@@ -2,11 +2,12 @@ import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useZikhr } from '@/context/ZikhrContext';
 
 const REMINDERS_STORAGE_KEY = '@zikirmatik/reminders';
+const ANDROID_CHANNEL_ID = 'zikirmatik-reminders';
 
 type Reminder = {
   id: string;
@@ -95,13 +96,27 @@ export default function ReminderScreen() {
     void loadReminders();
   }, []);
 
-  // Check notification permissions
+  // Configure Android notification channel + check permissions
   useEffect(() => {
+    const configureChannel = async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+          name: 'Zikirmatik Hatırlatıcıları',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#03c459',
+          lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+          sound: 'default',
+        }).catch((error) => console.warn('Failed to set notification channel', error));
+      }
+    };
+
     const checkPermissions = async () => {
       const { status } = await Notifications.getPermissionsAsync();
       setPermissionStatus(status === 'granted' ? 'granted' : status === 'denied' ? 'denied' : 'undetermined');
     };
 
+    void configureChannel();
     void checkPermissions();
   }, []);
 
@@ -242,6 +257,7 @@ export default function ReminderScreen() {
           title: reminder.zikhrName,
           body: reminder.message || 'Zikir zamanı geldi!',
           sound: true,
+          channelId: Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined,
           data: { reminderId: reminder.id },
         },
         trigger,
