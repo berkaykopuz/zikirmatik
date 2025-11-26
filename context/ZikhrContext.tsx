@@ -11,6 +11,8 @@ export type CompletedZikhr = {
   completedAt: string;
 };
 
+type ZikhrProgressMap = Record<string, number>;
+
 type ZikhrContextValue = {
   zikhrs: ZikhrItem[];
   selectedZikhr: ZikhrItem;
@@ -19,16 +21,21 @@ type ZikhrContextValue = {
   deleteZikhr: (zikhr: ZikhrItem) => void;
   completedZikhrs: CompletedZikhr[];
   addCompletedZikhr: (zikhr: ZikhrItem) => void;
+  zikhrProgress: ZikhrProgressMap;
+  updateZikhrProgress: (name: string, count: number) => void;
+  resetZikhrProgress: (name: string) => void;
 };
 
 const ZikhrContext = createContext<ZikhrContextValue | undefined>(undefined);
 const STORAGE_KEY = '@zikirmatik/customZikhrs';
 const COMPLETED_STORAGE_KEY = '@zikirmatik/completedZikhrs';
+const PROGRESS_STORAGE_KEY = '@zikirmatik/zikhrProgress';
 
 export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [customZikhrs, setCustomZikhrs] = useState<ZikhrItem[]>([]);
   const [selectedZikhr, setSelectedZikhr] = useState(DEFAULT_ZIKHR);
   const [completedZikhrs, setCompletedZikhrs] = useState<CompletedZikhr[]>([]);
+  const [progressMap, setProgressMap] = useState<ZikhrProgressMap>({});
 
   const zikhrs = useMemo(() => [...ZIKHR_ITEMS, ...customZikhrs], [customZikhrs]);
 
@@ -51,7 +58,29 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     },
     [saveCustomZikhrs],
   );
+  const saveProgressMap = useCallback(async (data: ZikhrProgressMap) => {
+    try {
+      await AsyncStorage.setItem(PROGRESS_STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to save zikhr progress to storage', error);
+    }
+  }, []);
 
+  const resetZikhrProgress = useCallback(
+    (name: string) => {
+      setProgressMap((prev) => {
+        if (!prev[name]) {
+          return prev;
+        }
+        const updated = { ...prev };
+        delete updated[name];
+        void saveProgressMap(updated);
+        return updated;
+      });
+    },
+    [saveProgressMap],
+  );
+  
   const deleteZikhr = useCallback(
     (zikhr: ZikhrItem) => {
       // update the zikhr list without deleted one
@@ -60,12 +89,13 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
         void saveCustomZikhrs(updated);
         return updated;
       });
+      resetZikhrProgress(zikhr.name);
       // If the deleted zikhr is currently selected, switch to default
       if (selectedZikhr.name === zikhr.name) {
         setSelectedZikhr(DEFAULT_ZIKHR);
       }
     },
-    [saveCustomZikhrs, selectedZikhr],
+    [resetZikhrProgress, saveCustomZikhrs, selectedZikhr],
   );
 
   const saveCompletedZikhrs = useCallback(async (items: CompletedZikhr[]) => {
@@ -93,6 +123,22 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     },
     [saveCompletedZikhrs],
   );
+
+  
+
+  const updateZikhrProgress = useCallback(
+    (name: string, count: number) => {
+      setProgressMap((prev) => {
+        const nextValue = Math.max(0, count);
+        const updated = { ...prev, [name]: nextValue };
+        void saveProgressMap(updated);
+        return updated;
+      });
+    },
+    [saveProgressMap],
+  );
+
+  
 
   useEffect(() => {
     const loadCustomZikhrs = async () => {
@@ -130,6 +176,24 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     void loadCompletedZikhrs();
   }, []);
 
+  useEffect(() => {
+    const loadProgress = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(PROGRESS_STORAGE_KEY);
+        if (stored) {
+          const parsed: ZikhrProgressMap = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object') {
+            setProgressMap(parsed);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load zikhr progress from storage', error);
+      }
+    };
+
+    void loadProgress();
+  }, []);
+
   const value = useMemo(
     () => ({
       zikhrs,
@@ -139,8 +203,21 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       deleteZikhr,
       completedZikhrs,
       addCompletedZikhr,
+      zikhrProgress: progressMap,
+      updateZikhrProgress,
+      resetZikhrProgress,
     }),
-    [zikhrs, selectedZikhr, addZikhr, deleteZikhr, completedZikhrs, addCompletedZikhr],
+    [
+      zikhrs,
+      selectedZikhr,
+      addZikhr,
+      deleteZikhr,
+      completedZikhrs,
+      addCompletedZikhr,
+      progressMap,
+      updateZikhrProgress,
+      resetZikhrProgress,
+    ],
   );
 
   return <ZikhrContext.Provider value={value}>{children}</ZikhrContext.Provider>;

@@ -12,7 +12,15 @@ const FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteZikhrNames';
 
 export default function ZikhrsScreen() {
   const router = useRouter();
-  const { zikhrs, setSelectedZikhr: setRunningZikhr, addZikhr, deleteZikhr, completedZikhrs } = useZikhr();
+  const {
+    zikhrs,
+    setSelectedZikhr: setRunningZikhr,
+    addZikhr,
+    deleteZikhr,
+    completedZikhrs,
+    zikhrProgress,
+    resetZikhrProgress,
+  } = useZikhr();
 
   const [isModalVisible, setModalVisible] = useState(false);
   const [isCreateModalVisible, setCreateModalVisible] = useState(false);
@@ -134,6 +142,12 @@ export default function ZikhrsScreen() {
 
   const selected = previewZikhr;
   const isUserCreated = selected ? !ZIKHR_ITEMS.some((item) => item.name === selected.name) : false;
+  const selectedProgress = selected ? zikhrProgress[selected.name] ?? 0 : 0;
+  const selectedTarget = selected?.count ?? 0;
+  const selectedRemaining = selected ? Math.max(selectedTarget - selectedProgress, 0) : 0;
+  const hasSelectedPartialProgress = Boolean(selected) && selectedProgress > 0 && selectedRemaining > 0;
+  const isSelectedComplete = Boolean(selected) && selectedProgress > 0 && selectedRemaining === 0;
+  const modalActionLabel = hasSelectedPartialProgress ? 'Devam Et' : 'Başlat';
 
   const resetCreateForm = () => {
     setNewZikhrName('');
@@ -148,6 +162,9 @@ export default function ZikhrsScreen() {
 
   const handleStartSelectedZikhr = () => {
     if (selected) {
+      if (isSelectedComplete) {
+        resetZikhrProgress(selected.name);
+      }
       setRunningZikhr(selected);
     }
 
@@ -155,7 +172,8 @@ export default function ZikhrsScreen() {
     setModalVisible(false);
     setPreviewZikhr(null);
     router.replace('/'); // navigate to main screen
-  }
+  };
+
 
   const handleCreateZikhr = () => {
     const trimmedName = newZikhrName.trim();
@@ -245,6 +263,9 @@ export default function ZikhrsScreen() {
 
           {sortedZikhrs.map((item) => {
             const isFavorite = favoriteSet.has(item.name);
+            const currentProgress = zikhrProgress[item.name] ?? 0;
+            const remaining = Math.max(item.count - currentProgress, 0);
+            const progressRatio = item.count > 0 ? Math.min(currentProgress / item.count, 1) : 0;
             return (
               <TouchableOpacity
                 key={item.name}
@@ -253,7 +274,9 @@ export default function ZikhrsScreen() {
                 onPress={() => openZikhrDetails(item)}
               >
                 <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
+                  <View style={styles.cardTitleRow}>
+                    <Text style={styles.cardTitle}>{item.name}</Text>
+                  </View>
                   <Pressable
                     hitSlop={10}
                     style={styles.favoriteIconButton}
@@ -272,6 +295,14 @@ export default function ZikhrsScreen() {
                 <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
                   {item.description}
                 </Text>
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressTrack}>
+                    <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+                  </View>
+                  <Text style={styles.progressLabel}>
+                    {currentProgress}/{item.count} tamamlandı
+                  </Text>
+                </View>
               </TouchableOpacity>
             );
           })}
@@ -333,7 +364,7 @@ export default function ZikhrsScreen() {
                   activeOpacity={0.9}
                   onPress={handleStartSelectedZikhr}
                 >
-                  <Text style={styles.modalRunButtonText}>Başlat</Text>
+                  <Text style={styles.modalRunButtonText}>{modalActionLabel}</Text>
                 </TouchableOpacity>
               </View>
             </Pressable>
@@ -445,6 +476,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: 8,
   },
+  cardTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 6,
+  },
   addCard: {
     borderStyle: 'dashed',
     borderColor: '#4a4d55',
@@ -460,7 +498,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#e6e7e9',
-    marginBottom: 8,
   },
   cardDesc: {
     fontSize: 13,
@@ -470,6 +507,27 @@ const styles = StyleSheet.create({
   favoriteIconButton: {
     padding: 6,
     borderRadius: 999,
+  },
+  progressContainer: {
+    marginTop: 12,
+    gap: 6,
+  },
+  progressTrack: {
+    width: '100%',
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: '#3a3d42',
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: '#03c459',
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: '#a7acb5',
+    fontWeight: '500',
   },
   completedCard: {
     gap: 8,

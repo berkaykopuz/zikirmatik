@@ -20,7 +20,13 @@ const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 
 export default function HomeScreen() {
-  const { selectedZikhr, addCompletedZikhr } = useZikhr();
+  const {
+    selectedZikhr,
+    addCompletedZikhr,
+    zikhrProgress,
+    updateZikhrProgress,
+    resetZikhrProgress,
+  } = useZikhr();
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
@@ -29,10 +35,12 @@ export default function HomeScreen() {
   const [isSoundPlaying, setIsSoundPlaying] = useState(true);
 
   useEffect(() => {
-    setTarget(selectedZikhr.count ?? DAILY_TARGET);
-    setCount(0);
-    setHasCompleted(false);
-  }, [selectedZikhr]);
+    const nextTarget = selectedZikhr.count ?? DAILY_TARGET;
+    const storedProgress = zikhrProgress[selectedZikhr.name] ?? 0;
+    setTarget(nextTarget);
+    setCount(storedProgress);
+    setHasCompleted(storedProgress >= nextTarget && nextTarget > 0);
+  }, [selectedZikhr, zikhrProgress]);
 
   const progress = Math.min(count / target, 1);
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -48,6 +56,7 @@ export default function HomeScreen() {
   const increment = () => {
     setCount((prev) => {
       const updated = prev + 1;
+      updateZikhrProgress(selectedZikhr.name, Math.min(updated, target));
       if (!hasCompleted && updated >= target && target > 0) {
         setHasCompleted(true);
         addCompletedZikhr(selectedZikhr);
@@ -61,6 +70,7 @@ export default function HomeScreen() {
   const reset = () => {
     setCount(0);
     setHasCompleted(false);
+    resetZikhrProgress(selectedZikhr.name);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
   };
 
