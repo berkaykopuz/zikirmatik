@@ -2,6 +2,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
@@ -28,19 +29,30 @@ export default function HomeScreen() {
     resetZikhrProgress,
   } = useZikhr();
   const [count, setCount] = useState(0);
-  const [target, setTarget] = useState(selectedZikhr.count ?? DAILY_TARGET);
+  const [target, setTarget] = useState(DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   const [isSoundPlaying, setIsSoundPlaying] = useState(true);
 
+  const router = useRouter();
+
   useEffect(() => {
-    const nextTarget = selectedZikhr.count ?? DAILY_TARGET;
+    if (!selectedZikhr) {
+      setTarget(DAILY_TARGET);
+      setCount(0);
+      setHasCompleted(false);
+      return;
+    }
+
+    const nextTarget = selectedZikhr.count;
     const storedProgress = zikhrProgress[selectedZikhr.name] ?? 0;
+
     setTarget(nextTarget);
     setCount(storedProgress);
     setHasCompleted(storedProgress >= nextTarget && nextTarget > 0);
   }, [selectedZikhr, zikhrProgress]);
+
 
   const progress = Math.min(count / target, 1);
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -49,12 +61,19 @@ export default function HomeScreen() {
   // Notify user when it is completed
   const notifyCompletion = useCallback(() => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-    Alert.alert('Tebrikler!', selectedZikhr.name + ' zikrini tamamladınız.');
-  }, [selectedZikhr.name]);
+    Alert.alert('Tebrikler!', selectedZikhr?.name + ' zikrini tamamladınız.');
+  }, [selectedZikhr?.name]);
 
   // Check in every step if it is completed
   const increment = () => {
+
     setCount((prev) => {
+
+      if (!selectedZikhr) {
+        router.push("/zikhrs");
+        return prev;
+      }
+
       const updated = prev + 1;
       updateZikhrProgress(selectedZikhr.name, Math.min(updated, target));
       if (!hasCompleted && updated >= target && target > 0) {
@@ -68,6 +87,9 @@ export default function HomeScreen() {
 
   // Reset Zikirmatik
   const reset = () => {
+
+    if (!selectedZikhr) return;
+
     setCount(0);
     setHasCompleted(false);
     resetZikhrProgress(selectedZikhr.name);
@@ -96,7 +118,7 @@ export default function HomeScreen() {
   const shareZikhr = async () => {
     try {
       const result = await Share.share({
-        message: `${selectedZikhr.description}\n\n— Zikir Adeti: ${selectedZikhr.count}`,
+        message: `${selectedZikhr?.description}\n\n— Zikir Adeti: ${selectedZikhr?.count}`,
       });
     } catch (error) {
       console.error('Error sharing:', error);
@@ -149,12 +171,24 @@ export default function HomeScreen() {
       {/* Zikir Info Banner */}
       <TouchableOpacity
         style={styles.zikirBar}
-        onPress={() => setZikirInfoVisible(true)}
+        onPress={() => {
+          if (!selectedZikhr) {
+            router.push("/zikhrs"); 
+            return;
+          }
+          setZikirInfoVisible(true)
+          }
+        }
         activeOpacity={0.85}
       >
         <View style={styles.zikirBarCenter}>
-          <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>{selectedZikhr.name}</Text>
-          <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
+          <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>
+            {selectedZikhr ? selectedZikhr.name : "Zikir Seç"}
+          </Text>
+          <Text style={styles.zikirBarGoal}>
+            {selectedZikhr ? `Kalan Hedef: ${remainingCount}` : "Bir zikir seçiniz"}
+          </Text>
+
         </View>
         {/*<TouchableOpacity           Dikhr sharing can be put in some other time.
               style={styles.shareButton}
@@ -263,12 +297,16 @@ export default function HomeScreen() {
           <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
             <Pressable style={styles.modalBackdropPressable} onPress={() => setZikirInfoVisible(false)}>
               <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-                <Text style={styles.modalTitle}>{selectedZikhr.name}</Text>
-                <Text style={styles.modalDescription}>{selectedZikhr.description}</Text>
-                <View style={styles.modalInfoRow}>
-                  <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
-                  <Text style={styles.modalInfoValue}>{selectedZikhr.count}</Text>
-                </View>
+                {selectedZikhr && (
+                  <>
+                    <Text style={styles.modalTitle}>{selectedZikhr.name}</Text>
+                    <Text style={styles.modalDescription}>{selectedZikhr.description}</Text>
+                    <View style={styles.modalInfoRow}>
+                      <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
+                      <Text style={styles.modalInfoValue}>{selectedZikhr.count}</Text>
+                    </View>
+                  </>
+                )}
                 <TouchableOpacity
                   style={styles.modalCloseButton}
                   onPress={() => setZikirInfoVisible(false)}

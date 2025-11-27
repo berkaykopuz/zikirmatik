@@ -9,6 +9,15 @@ import { ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
 import { useZikhr } from '@/context/ZikhrContext';
 
 const FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteZikhrNames';
+const COMPLETED_FILTERS = {
+  all: { label: 'Toplam', durationMs: null },
+  daily: { label: 'Günlük', durationMs: 24 * 60 * 60 * 1000 },
+  monthly: { label: 'Aylık', durationMs: 30 * 24 * 60 * 60 * 1000 },
+  threeMonths: { label: '3 Aylık', durationMs: 90 * 24 * 60 * 60 * 1000 },
+  yearly: { label: 'Yıllık', durationMs: 365 * 24 * 60 * 60 * 1000 },
+} as const;
+
+type CompletedFilter = keyof typeof COMPLETED_FILTERS;
 
 export default function ZikhrsScreen() {
   const router = useRouter();
@@ -30,6 +39,8 @@ export default function ZikhrsScreen() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
+  const [completedFilter, setCompletedFilter] = useState<CompletedFilter>('all');
+  const [isFilterMenuVisible, setFilterMenuVisible] = useState(false);
 
   const persistFavorites = useCallback(async (names: string[]) => {
     try {
@@ -214,6 +225,21 @@ export default function ZikhrsScreen() {
 
   const completedHistory = useMemo(() => completedZikhrs, [completedZikhrs]);
 
+  const filteredCompletedHistory = useMemo(() => {
+    const selectedFilter = COMPLETED_FILTERS[completedFilter];
+    if (!selectedFilter || selectedFilter.durationMs === null) {
+      return completedHistory;
+    }
+    const threshold = Date.now() - selectedFilter.durationMs;
+    return completedHistory.filter((entry) => {
+      const completedTime = new Date(entry.completedAt).getTime();
+      if (Number.isNaN(completedTime)) {
+        return false;
+      }
+      return completedTime >= threshold;
+    });
+  }, [completedHistory, completedFilter]);
+
   const formatCompletedDate = useCallback((isoDate: string) => {
     try {
       return new Date(isoDate).toLocaleString('tr-TR', {
@@ -308,30 +334,67 @@ export default function ZikhrsScreen() {
           })}
         </ScrollView>
       ) : (
-        <ScrollView contentContainerStyle={styles.list}>
-          {completedHistory.length === 0 ? (
-            <View style={[styles.card, styles.emptyHistoryCard]}>
-              <Text style={styles.emptyHistoryTitle}>Henüz tamamlanan zikir yok</Text>
-              <Text style={styles.emptyHistoryDesc}>Bir zikri tamamladığınızda burada görebilirsiniz.</Text>
-            </View>
-          ) : (
-            completedHistory.map((entry) => (
-              <View key={entry.id} style={[styles.card, styles.completedCard]}>
-                <View style={styles.completedHeader}>
-                  <Text style={styles.cardTitle}>{entry.name}</Text>
-                  <View style={styles.completedCountBadge}>
-                    <Ionicons name="checkmark-circle" size={16} color="#0b2f1b" />
-                    <Text style={styles.completedCountText}>{entry.count} Adet Çekildi</Text>
+        <View style={styles.completedSection}>
+          <View style={styles.filterTray}>
+            <TouchableOpacity
+              style={styles.filterButton}
+              activeOpacity={0.85}
+              onPress={() => setFilterMenuVisible((prev) => !prev)}
+            >
+              <Ionicons name="filter" size={16} color="#0b2f1b" />
+              <Text style={styles.filterButtonText}>Filtre: {COMPLETED_FILTERS[completedFilter].label}</Text>
+              <Ionicons name={isFilterMenuVisible ? 'chevron-up' : 'chevron-down'} size={16} color="#0b2f1b" />
+            </TouchableOpacity>
+            {isFilterMenuVisible ? (
+              <View style={styles.filterOptions}>
+                {Object.entries(COMPLETED_FILTERS).map(([value, config]) => {
+                  const isActive = value === completedFilter;
+                  return (
+                    <Pressable
+                      key={value}
+                      style={[styles.filterOption, isActive && styles.filterOptionActive]}
+                      onPress={() => {
+                        setCompletedFilter(value as CompletedFilter);
+                        setFilterMenuVisible(false);
+                      }}
+                    >
+                      <Text style={[styles.filterOptionText, isActive && styles.filterOptionTextActive]}>
+                        {config.label}
+                      </Text>
+                      {isActive ? <Ionicons name="checkmark" size={16} color="#03c459" /> : null}
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+          </View>
+          <ScrollView contentContainerStyle={styles.list}>
+            {filteredCompletedHistory.length === 0 ? (
+              <View style={[styles.card, styles.emptyHistoryCard]}>
+                <Text style={styles.emptyHistoryTitle}>Seçilen filtre için kayıt yok</Text>
+                <Text style={styles.emptyHistoryDesc}>
+                  {COMPLETED_FILTERS[completedFilter].label} aralığında tamamlanan zikir bulunamadı.
+                </Text>
+              </View>
+            ) : (
+              filteredCompletedHistory.map((entry) => (
+                <View key={entry.id} style={[styles.card, styles.completedCard]}>
+                  <View style={styles.completedHeader}>
+                    <Text style={styles.cardTitle}>{entry.name}</Text>
+                    <View style={styles.completedCountBadge}>
+                      <Ionicons name="checkmark-circle" size={16} color="#0b2f1b" />
+                      <Text style={styles.completedCountText}>{entry.count} Adet Çekildi</Text>
+                    </View>
+                  </View>
+                  <View style={styles.completedFooter}>
+                    <Ionicons name="time-outline" size={16} color="#a7acb5" />
+                    <Text style={styles.completedMeta}>{formatCompletedDate(entry.completedAt)}</Text>
                   </View>
                 </View>
-                <View style={styles.completedFooter}>
-                  <Ionicons name="time-outline" size={16} color="#a7acb5" />
-                  <Text style={styles.completedMeta}>{formatCompletedDate(entry.completedAt)}</Text>
-                </View>
-              </View>
-            ))
-          )}
-        </ScrollView>
+              ))
+            )}
+          </ScrollView>
+        </View>
       )}
 
       <Modal
@@ -463,6 +526,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 12,
   },
+  completedSection: {
+    flex: 1,
+  },
   card: {
     backgroundColor: '#2c2f34',
     borderRadius: 12,
@@ -574,6 +640,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#a7acb5',
     textAlign: 'center',
+  },
+  filterTray: {
+    marginBottom: 12,
+    gap: 8,
+  },
+  filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffbf00',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  filterButtonText: {
+    flex: 1,
+    marginHorizontal: 8,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0b2f1b',
+  },
+  filterOptions: {
+    backgroundColor: '#2c2f34',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  filterOptionActive: {
+    backgroundColor: '#26292f',
+  },
+  filterOptionText: {
+    fontSize: 14,
+    color: '#e6e7e9',
+  },
+  filterOptionTextActive: {
+    color: '#03c459',
+    fontWeight: '700',
   },
 
   modalBackdrop: {

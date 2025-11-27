@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
-import { DEFAULT_ZIKHR, ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
+import { ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
 
 export type CompletedZikhr = {
   id: string;
@@ -15,8 +15,8 @@ type ZikhrProgressMap = Record<string, number>;
 
 type ZikhrContextValue = {
   zikhrs: ZikhrItem[];
-  selectedZikhr: ZikhrItem;
-  setSelectedZikhr: (zikhr: ZikhrItem) => void;
+  selectedZikhr: ZikhrItem | null; 
+  setSelectedZikhr: (zikhr: ZikhrItem | null) => void;
   addZikhr: (zikhr: ZikhrItem) => void;
   deleteZikhr: (zikhr: ZikhrItem) => void;
   completedZikhrs: CompletedZikhr[];
@@ -30,10 +30,13 @@ const ZikhrContext = createContext<ZikhrContextValue | undefined>(undefined);
 const STORAGE_KEY = '@zikirmatik/customZikhrs';
 const COMPLETED_STORAGE_KEY = '@zikirmatik/completedZikhrs';
 const PROGRESS_STORAGE_KEY = '@zikirmatik/zikhrProgress';
+const SELECTED_STORAGE_KEY = '@zikirmatik/selectedZikhr';
 
 export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [customZikhrs, setCustomZikhrs] = useState<ZikhrItem[]>([]);
-  const [selectedZikhr, setSelectedZikhr] = useState(DEFAULT_ZIKHR);
+  const [selectedZikhr, setSelectedZikhr] = useState<ZikhrItem | null>(null);
+  const [selectionHydrated, setSelectionHydrated] = useState(false);
+  const [customsHydrated, setCustomsHydrated] = useState(false);
   const [completedZikhrs, setCompletedZikhrs] = useState<CompletedZikhr[]>([]);
   const [progressMap, setProgressMap] = useState<ZikhrProgressMap>({});
 
@@ -47,6 +50,26 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const saveSelectedZikhr = useCallback(async (zikhr: ZikhrItem | null) => {
+    try {
+      if (zikhr) {
+        await AsyncStorage.setItem(SELECTED_STORAGE_KEY, JSON.stringify(zikhr));
+      } else {
+        await AsyncStorage.removeItem(SELECTED_STORAGE_KEY);
+      }
+    } catch (error) {
+      console.warn('Failed to persist selected zikhr', error);
+    }
+  }, []);
+
+  const selectZikhr = useCallback(
+    (zikhr: ZikhrItem | null) => {
+      setSelectedZikhr(zikhr);
+      void saveSelectedZikhr(zikhr);
+    },
+    [saveSelectedZikhr],
+  );
+
   const addZikhr = useCallback(
     (zikhr: ZikhrItem) => {
       setCustomZikhrs((prev) => {
@@ -54,9 +77,9 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
         void saveCustomZikhrs(updated);
         return updated;
       });
-      setSelectedZikhr(zikhr);
+      selectZikhr(zikhr);
     },
-    [saveCustomZikhrs],
+    [saveCustomZikhrs, selectZikhr],
   );
   const saveProgressMap = useCallback(async (data: ZikhrProgressMap) => {
     try {
@@ -91,11 +114,11 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       });
       resetZikhrProgress(zikhr.name);
       // If the deleted zikhr is currently selected, switch to default
-      if (selectedZikhr.name === zikhr.name) {
-        setSelectedZikhr(DEFAULT_ZIKHR);
+      if (selectedZikhr?.name === zikhr.name) {
+        selectZikhr(null);
       }
     },
-    [resetZikhrProgress, saveCustomZikhrs, selectedZikhr],
+    [resetZikhrProgress, saveCustomZikhrs, selectZikhr, selectedZikhr],
   );
 
   const saveCompletedZikhrs = useCallback(async (items: CompletedZikhr[]) => {
@@ -155,7 +178,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    void loadCustomZikhrs();
+    void loadCustomZikhrs().finally(() => setCustomsHydrated(true));
   }, []);
 
   useEffect(() => {
@@ -194,11 +217,37 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     void loadProgress();
   }, []);
 
+  useEffect(() => {
+    if (selectionHydrated || !customsHydrated) {
+      return;
+    }
+
+    const loadSelectedZikhr = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(SELECTED_STORAGE_KEY);
+        if (!stored) {
+          setSelectionHydrated(true);
+          return;
+        }
+        const parsed: ZikhrItem = JSON.parse(stored);
+        const match = zikhrs.find((item) => item.name === parsed.name) ?? null;
+        selectZikhr(match);
+      } catch (error) {
+        console.warn('Failed to load selected zikhr', error);
+        selectZikhr(null);
+      } finally {
+        setSelectionHydrated(true);
+      }
+    };
+
+    void loadSelectedZikhr();
+  }, [customsHydrated, selectZikhr, selectionHydrated, zikhrs]);
+
   const value = useMemo(
     () => ({
       zikhrs,
       selectedZikhr,
-      setSelectedZikhr,
+      setSelectedZikhr: selectZikhr,
       addZikhr,
       deleteZikhr,
       completedZikhrs,
