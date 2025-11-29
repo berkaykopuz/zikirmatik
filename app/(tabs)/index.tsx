@@ -4,14 +4,16 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, Dimensions, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
 import Svg, { Circle } from 'react-native-svg';
 
+import { BeadCounter } from '@/components/BeadCounter';
 import { useZikhr } from '@/context/ZikhrContext';
 
 const { width } = Dimensions.get('window');
 const DEVICE_WIDTH = width * 0.6;
-const DEVICE_HEIGHT = DEVICE_WIDTH * 1.0;
+const DEVICE_HEIGHT = DEVICE_WIDTH * 1.2;
 const DAILY_TARGET = 10000;
 const MAIN_BUTTON_SIZE = 75;
 const PROGRESS_RING_STROKE = 6;
@@ -28,13 +30,17 @@ export default function HomeScreen() {
     zikhrProgress,
     updateZikhrProgress,
     resetZikhrProgress,
+    soundEnabled,
+    setSoundEnabled,
+    vibrationEnabled,
+    appearanceMode,
+    backgroundImage,
   } = useZikhr();
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
-  const [isSoundPlaying, setIsSoundPlaying] = useState(true);
 
   const router = useRouter();
 
@@ -55,37 +61,37 @@ export default function HomeScreen() {
   }, [selectedZikhr, zikhrProgress]);
 
 
-  const progress = Math.min(count / target, 1);
+  const progress = target > 0 ? Math.min(count / target, 1) : 0;
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
   const remainingCount = Math.max(target - count, 0);
 
   // Notify user when it is completed
   const notifyCompletion = useCallback(() => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    if (vibrationEnabled) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => { });
+    }
     Alert.alert('Tebrikler!', selectedZikhr?.name + ' zikrini tamamladınız.');
-  }, [selectedZikhr?.name]);
+  }, [selectedZikhr?.name, vibrationEnabled]);
 
   // Check in every step if it is completed
   const increment = () => {
 
     setCount((prev) => {
-
-      if (!selectedZikhr) {
-        router.push("/zikhrs");
-        return prev;
-      }
-
       const updated = prev + 1;
-      updateZikhrProgress(selectedZikhr.name, Math.min(updated, target));
-      if (!hasCompleted && updated >= target && target > 0) {
-        setHasCompleted(true);
-        addCompletedZikhr(selectedZikhr);
-        notifyCompletion();
-        
-        // Clear selected zikhr and restart the dikhrmatik
-        setSelectedZikhr(null);
-        router.replace('/zikhrs');
+
+      if (selectedZikhr) {
+        // Update progress, but allow it to go beyond target
+        updateZikhrProgress(selectedZikhr.name, updated);
+
+        // Notify completion only once when target is exactly reached
+        if (!hasCompleted && updated === target && target > 0) {
+          setHasCompleted(true);
+          addCompletedZikhr(selectedZikhr);
+          notifyCompletion();
+          // Do NOT reset or redirect, just let the user continue
+        }
       }
+
       return updated;
     });
   };
@@ -109,7 +115,9 @@ export default function HomeScreen() {
             setCount(0);
             setHasCompleted(false);
             resetZikhrProgress(selectedZikhr.name);
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            if (vibrationEnabled) {
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+            }
           },
         },
       ],
@@ -150,224 +158,232 @@ export default function HomeScreen() {
   const player = useAudioPlayer(require('@/assets/music/ney.mp3'));
 
   useEffect(() => {
-    if (isSoundPlaying) {
-      player.play();
-    } else {
-      player.pause();
+    try {
+      if (soundEnabled) {
+        player.play();
+      } else {
+        player.pause();
+      }
+    } catch (e) {
+      // Ignore errors if player is released
     }
 
     return () => {
-      player.pause();
+      try {
+        player.pause();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
     };
-  }, [isSoundPlaying, player]);
+  }, [soundEnabled, player]);
 
-  return (
-    <View style={styles.container}>
-      {/* Sound and Settings Icons */}
-      <View style={styles.topButtonsRow}>
-        <TouchableOpacity
-          style={[styles.iconButton, styles.soundButton]}
-          onPress={() => setIsSoundPlaying((prev) => !prev)}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name={isSoundPlaying ? 'volume-up' : 'volume-off'} size={30} color="#e6e7e9" />
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.iconButton}
-          onPress={() => {
-            // TODO: Navigate to settings screen
-            Alert.alert('Ayarlar', 'Ayarlar sayfası yakında eklenecek.');
-          }}
-          activeOpacity={0.5}
-        >
-          <MaterialIcons name="settings" size={30} color="#e6e7e9" />
-        </TouchableOpacity>
-      </View>
+  const getBackgroundImage = () => {
+    switch (backgroundImage) {
+      case 'kaaba':
+        return require('@/assets/images/backgrounds/kaaba.png');
+      case 'medina':
+        return require('@/assets/images/backgrounds/medina.png');
+      case 'nature':
+        return require('@/assets/images/backgrounds/nature.png');
+      default:
+        return null;
+    }
+  };
 
-    <ScrollView 
-      style={styles.scrollView} 
-      contentContainerStyle={styles.contentContainer}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Zikir Info Banner */}
-      <TouchableOpacity
-        style={styles.zikirBar}
-        onPress={() => {
-          if (!selectedZikhr) {
-            router.push("/zikhrs"); 
-            return;
-          }
-          setZikirInfoVisible(true)
-          }
-        }
-        activeOpacity={0.85}
-      >
-        <View style={styles.zikirBarCenter}>
-          <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>
-            {selectedZikhr ? selectedZikhr.name : "Zikir Seç"}
-          </Text>
-          <Text style={styles.zikirBarGoal}>
-            {selectedZikhr ? `Kalan Hedef: ${remainingCount}` : "Bir zikir seçiniz"}
-          </Text>
+  const bgImageSource = getBackgroundImage();
 
+  function renderContent() {
+    return (
+      <>
+        <View style={styles.topButtonsRow}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => setSoundEnabled(!soundEnabled)}
+          >
+            <MaterialIcons
+              name={soundEnabled ? "volume-up" : "volume-off"}
+              size={24}
+              color={backgroundImage ? "#FFFFFF" : "#e6e7e9"}
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => router.push('/settings')}
+          >
+            <MaterialIcons name="settings" size={24} color={backgroundImage ? "#FFFFFF" : "#e6e7e9"} />
+          </TouchableOpacity>
         </View>
-        {/*<TouchableOpacity           Dikhr sharing can be put in some other time.
-              style={styles.shareButton}
-              onPress={shareZikhr}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name="share" size={22} color="#e6e7e9" />
-        </TouchableOpacity>*/}
-      </TouchableOpacity>
 
-      {/* Physical Zikirmatik Device */}
-      <View style={styles.deviceContainer}>
-        <View style={styles.device}>
-          {/* Stylistic background layers */}
-          <View style={styles.deviceInnerGlow} />
-          <View style={styles.deviceTopHighlight} />
-          
-          {/* Green LED Display */}
-          <View style={styles.displayContainer}>
-            <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
-          </View>
+        <ScrollView contentContainerStyle={styles.contentContainer}>
+          <TouchableOpacity
+            style={styles.zikirBar}
+            onPress={() => setZikirInfoVisible(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.zikirBarCenter}>
+              <Text style={[styles.zikirBarName, styles.zikirTextGlowing]}>{selectedZikhr?.name || 'Zikir Seç'}</Text>
+              <Text style={styles.zikirBarGoal}>Kalan Hedef: {remainingCount}</Text>
+            </View>
+            <Text style={styles.infoHint}>ⓘ</Text>
+          </TouchableOpacity>
 
+          <View style={styles.deviceContainer}>
+            <View style={styles.device}>
+              <View style={styles.deviceInnerGlow} />
+              <View style={styles.deviceTopHighlight} />
 
-          {/* Main Counting Button (Large Center Button) */}
-          <View style={styles.mainButtonWrapper}>
-            <Svg width={PROGRESS_RING_SIZE} height={PROGRESS_RING_SIZE} style={styles.progressRing}>
-              <Circle
-                cx={PROGRESS_RING_SIZE / 2}
-                cy={PROGRESS_RING_SIZE / 2}
-                r={PROGRESS_RING_RADIUS}
-                stroke="#3a3b40"
-                strokeWidth={PROGRESS_RING_STROKE}
-                fill="none"
-              />
-              <Circle
-                cx={PROGRESS_RING_SIZE / 2}
-                cy={PROGRESS_RING_SIZE / 2}
-                r={PROGRESS_RING_RADIUS}
-                stroke="#03c459"
-                strokeWidth={PROGRESS_RING_STROKE}
-                strokeDasharray={`${PROGRESS_RING_CIRCUMFERENCE} ${PROGRESS_RING_CIRCUMFERENCE}`}
-                strokeDashoffset={strokeDashoffset}
-                strokeLinecap="round"
-                fill="none"
-                transform={`rotate(-90 ${PROGRESS_RING_SIZE / 2} ${PROGRESS_RING_SIZE / 2})`}
-              />
-            </Svg>
-            <Pressable 
-              style={({ pressed }) => [
-                styles.mainButton,
-                pressed && styles.mainButtonPressed
-              ]}
-              onPressIn={() => {
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              onPress={increment}
-            >
-              <View style={styles.mainButtonInner}>
-                <View style={styles.mainButtonPattern} />
+              <View style={styles.displayContainer}>
+                <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
               </View>
-            </Pressable>
+
+              <View style={styles.mainButtonWrapper}>
+                <View style={styles.progressRing}>
+                  {appearanceMode === 'beads' ? (
+                    <BeadCounter
+                      count={count}
+                      target={target}
+                      size={PROGRESS_RING_SIZE}
+                      strokeWidth={PROGRESS_RING_STROKE}
+                    />
+                  ) : (
+                    <Svg width={PROGRESS_RING_SIZE} height={PROGRESS_RING_SIZE}>
+                      <Circle
+                        cx={PROGRESS_RING_SIZE / 2}
+                        cy={PROGRESS_RING_SIZE / 2}
+                        r={PROGRESS_RING_RADIUS}
+                        stroke="#3a3d42"
+                        strokeWidth={PROGRESS_RING_STROKE}
+                        fill="none"
+                      />
+                      <Circle
+                        cx={PROGRESS_RING_SIZE / 2}
+                        cy={PROGRESS_RING_SIZE / 2}
+                        r={PROGRESS_RING_RADIUS}
+                        stroke="#098441"
+                        strokeWidth={PROGRESS_RING_STROKE}
+                        fill="none"
+                        strokeDasharray={PROGRESS_RING_CIRCUMFERENCE}
+                        strokeDashoffset={strokeDashoffset}
+                        strokeLinecap="round"
+                        rotation="-90"
+                        origin={`${PROGRESS_RING_SIZE / 2}, ${PROGRESS_RING_SIZE / 2}`}
+                      />
+                    </Svg>
+                  )}
+                </View>
+
+                <TouchableOpacity
+                  activeOpacity={1}
+                  style={[styles.mainButton]}
+                  onPress={() => {
+                    increment();
+                    if (vibrationEnabled) {
+                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    }
+                  }}
+                >
+                  <View style={styles.mainButtonInner}>
+                    <View style={styles.mainButtonPattern} />
+                  </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.resetButtonSmall}
+                  onPress={reset}
+                >
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
+        </ScrollView >
 
-          {/* Reset Button (Small Side Button) */}
-          <TouchableOpacity 
-            style={styles.resetButtonSmall}
-            onPress={reset}
-            activeOpacity={0.7}
-          />
-        </View>
-      </View>
-
-      {/* Daily Hadith Section */}
-      <TouchableOpacity
-        style={styles.hadithSection}
-        onPress={() => setHadithInfoVisible(true)}
-        activeOpacity={0.85}
-      >
-
+        <TouchableOpacity
+          style={styles.hadithSection}
+          onPress={() => setHadithInfoVisible(true)}
+          activeOpacity={0.9}
+        >
           <View style={styles.hadithHeader}>
             <Text style={styles.hadithTitle}>Günün Hadisi</Text>
-            <TouchableOpacity 
-              style={styles.hadithShareButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                shareHadith();
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
+            <TouchableOpacity style={styles.hadithShareButton} onPress={shareHadith}>
+              <Text style={styles.hadithShareButtonText}>Paylaş</Text>
             </TouchableOpacity>
           </View>
+          <Text style={styles.hadithText} numberOfLines={2}>{dailyHadith.text}</Text>
+          <Text style={styles.hadithSource}>{dailyHadith.source}</Text>
+        </TouchableOpacity>
+      </>
+    );
+  }
 
-          <Text style={styles.hadithText} numberOfLines={2} ellipsizeMode="tail">{dailyHadith.text}</Text>
-          <Text style={styles.hadithSource}>— {dailyHadith.source}</Text>
+  return (
+    <View style={{ flex: 1 }}>
+      {bgImageSource ? (
+        <ImageBackground source={bgImageSource} style={{ flex: 1 }} resizeMode="cover">
+          <View style={[styles.container, { backgroundColor: 'transparent' }]}>
+            {renderContent()}
+          </View>
+        </ImageBackground>
+      ) : (
+        <View style={styles.container}>
+          {renderContent()}
+        </View>
+      )}
 
-      </TouchableOpacity>
-
-      {/* Zikir Pop-up Card */}
+      {/* Modals */}
       <Modal
-        visible={isZikirInfoVisible}
-        transparent
         animationType="fade"
+        transparent={true}
+        visible={isZikirInfoVisible}
         onRequestClose={() => setZikirInfoVisible(false)}
       >
-          <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
-            <Pressable style={styles.modalBackdropPressable} onPress={() => setZikirInfoVisible(false)}>
-              <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-                {selectedZikhr && (
-                  <>
-                    <Text style={styles.modalTitle}>{selectedZikhr.name}</Text>
-                    <Text style={styles.modalDescription}>{selectedZikhr.description}</Text>
-                    <View style={styles.modalInfoRow}>
-                      <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
-                      <Text style={styles.modalInfoValue}>{selectedZikhr.count}</Text>
-                    </View>
-                  </>
-                )}
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() => setZikirInfoVisible(false)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalCloseButtonText}>Kapat</Text>
-                </TouchableOpacity>
-              </Pressable>
-            </Pressable>
-          </BlurView>
+        <View style={styles.modalBackdrop}>
+          <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" experimentalBlurMethod="dimezisBlurView" />
+          <Pressable style={styles.modalBackdropPressable} onPress={() => setZikirInfoVisible(false)}>
+            <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+              <Text style={styles.modalTitle}>{selectedZikhr?.name}</Text>
+              <Text style={styles.modalDescription}>{selectedZikhr?.description}</Text>
 
+              <View style={styles.modalInfoRow}>
+                <Text style={styles.modalInfoLabel}>Hedef</Text>
+                <Text style={styles.modalInfoValue}>{target}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setZikirInfoVisible(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </View>
       </Modal>
 
-      {/* Hadith Pop-up Card */}
       <Modal
-        visible={isHadithInfoVisible}
-        transparent
         animationType="fade"
+        transparent={true}
+        visible={isHadithInfoVisible}
         onRequestClose={() => setHadithInfoVisible(false)}
       >
-          <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
-            <Pressable style={styles.modalBackdropPressable} onPress={() => setHadithInfoVisible(false)}>
-              <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
-                <Text style={styles.modalTitle}>{dailyHadith.source}</Text>
-                <Text style={styles.modalDescription}>{dailyHadith.text}</Text>
-                <TouchableOpacity
-                  style={styles.modalCloseButton}
-                  onPress={() => setHadithInfoVisible(false)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.modalCloseButtonText}>Kapat</Text>
-                </TouchableOpacity>
-              </Pressable>
-            </Pressable>
-          </BlurView>
+        <View style={styles.modalBackdrop}>
+          <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" experimentalBlurMethod="dimezisBlurView" />
+          <Pressable style={styles.modalBackdropPressable} onPress={() => setHadithInfoVisible(false)}>
+            <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+              <Text style={styles.modalTitle}>Günün Hadisi</Text>
+              <Text style={styles.modalDescription}>{dailyHadith.text}</Text>
+              <Text style={[styles.hadithSource, { textAlign: 'center', marginTop: 10 }]}>{dailyHadith.source}</Text>
 
+              <TouchableOpacity
+                style={[styles.modalCloseButton, { marginTop: 20 }]}
+                onPress={() => setHadithInfoVisible(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </View>
       </Modal>
-
-
-    </ScrollView>
     </View>
   );
 }
@@ -421,18 +437,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   zikirBarName: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '600',
     color: '#ffbf00',
     letterSpacing: 0.5,
   },
   zikirTextGlowing: {
     textShadowColor: '#ca9b0fff',
-    textShadowOffset: {width: -1, height: 1},
+    textShadowOffset: { width: -1, height: 1 },
     textShadowRadius: 9
   },
   zikirBarGoal: {
-    fontSize: 11,
+    fontSize: 14,
     color: '#a7acb5',
     marginTop: 5,
     letterSpacing: 0.5,
@@ -450,7 +466,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 30,
   },
   device: {
     width: DEVICE_WIDTH,
@@ -496,8 +512,8 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   displayContainer: {
-    width: '60%',
-    height: 45,
+    width: '70%',
+    height: 60,
     backgroundColor: '#098441ff',
     borderRadius: 6,
     justifyContent: 'center',
@@ -510,7 +526,7 @@ const styles = StyleSheet.create({
 
   //LED TEXT
   ledDisplay: {
-    fontSize: 32,
+    fontSize: 42,
     color: '#003300',
     fontFamily: 'DSdigi',
     letterSpacing: 1.5,
@@ -570,9 +586,8 @@ const styles = StyleSheet.create({
   },
   resetButtonSmall: {
     position: 'absolute',
-    right: 15,
-    top: '50%',
-    marginTop: -12,
+    right: -20,
+    top: 0,
     width: 24,
     height: 24,
     borderRadius: 12,
@@ -635,7 +650,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 15,
     bottom: 15,
-    position:"absolute"
+    position: "absolute"
   },
   hadithHeader: {
     flexDirection: 'row',

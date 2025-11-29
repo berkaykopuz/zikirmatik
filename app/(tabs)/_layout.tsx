@@ -34,7 +34,7 @@ export default function TabLayout() {
           marginTop: 4,
         },
       }}>
-        
+
       <Tabs.Screen
         name="zikhrs"
         options={{
@@ -42,21 +42,29 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal-circle" size={24} color={color} />,
         }}
       />
-      
+
       <Tabs.Screen
-      name="index"
-      options={{
-        title: 'Ana Sayfa',
-        tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={24} color={color} />,
-      }}
+        name="index"
+        options={{
+          title: 'Ana Sayfa',
+          tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={24} color={color} />,
+        }}
       />
 
       <Tabs.Screen
-      name="reminder"
-      options={{
-        title: 'Hatırlatıcı',
-        tabBarIcon: ({ color }) => <MaterialIcons name="alarm" size={24} color={color} />,
-      }}
+        name="reminder"
+        options={{
+          title: 'Hatırlatıcı',
+          tabBarIcon: ({ color }) => <MaterialIcons name="alarm" size={24} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
+        name="esmaulhusna"
+        options={{
+          title: 'Esma-ül Hüsna',
+          tabBarIcon: ({ color }) => <Ionicons name="book" size={24} color={color} />,
+        }}
       />
 
       <Tabs.Screen
