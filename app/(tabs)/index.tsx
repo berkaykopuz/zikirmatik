@@ -23,6 +23,7 @@ const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 export default function HomeScreen() {
   const {
     selectedZikhr,
+    setSelectedZikhr,
     addCompletedZikhr,
     zikhrProgress,
     updateZikhrProgress,
@@ -80,6 +81,10 @@ export default function HomeScreen() {
         setHasCompleted(true);
         addCompletedZikhr(selectedZikhr);
         notifyCompletion();
+        
+        // Clear selected zikhr and restart the dikhrmatik
+        setSelectedZikhr(null);
+        router.replace('/zikhrs');
       }
       return updated;
     });
@@ -87,13 +92,29 @@ export default function HomeScreen() {
 
   // Reset Zikirmatik
   const reset = () => {
-
     if (!selectedZikhr) return;
 
-    setCount(0);
-    setHasCompleted(false);
-    resetZikhrProgress(selectedZikhr.name);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    Alert.alert(
+      'Sıfırla',
+      'Zikir sayacını sıfırlamak istediğinizden emin misiniz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Sıfırla',
+          style: 'destructive',
+          onPress: () => {
+            setCount(0);
+            setHasCompleted(false);
+            resetZikhrProgress(selectedZikhr.name);
+            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const dailyHadith = {

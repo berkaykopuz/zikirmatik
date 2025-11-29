@@ -48,8 +48,8 @@ function PermissionStatusComponent({ status }: { status: PermissionStatus }) {
       />
       <Text style={styles.permissionText}>
         {status === 'denied'
-          ? 'Bildirim izni reddedildi. Ayarlardan izin verin.'
-          : 'Bildirimler için izin gerekli.'}
+          ? 'Bildirimler için izin gereklidir. Oluştur butonuna bastıktan sonra onaylayınız.'
+          : 'Bildirimler için izin gereklidir.'}
       </Text>
     </View>
   );
@@ -433,7 +433,7 @@ export default function ReminderScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Zikir Seç</Text>
+          <Text style={styles.sectionLabel}>Hatırlatılacak Zikir</Text>
           <TouchableOpacity
             style={styles.zikhrSelector}
             onPress={() => setIsZikhrModalVisible(true)}
@@ -441,7 +441,7 @@ export default function ReminderScreen() {
             disabled={!zikhrNames.length}
           >
             <Text style={styles.zikhrSelectorText}>
-              {selectedZikhrName || (zikhrNames.length ? 'Zikir seç' : 'Önce bir zikir oluşturmalısınız')}
+              {selectedZikhrName || (zikhrNames.length ? 'Zikir Seç' : 'Önce bir zikir oluşturmalısınız')}
             </Text>
             <MaterialIcons
               name="chevron-right"
@@ -585,14 +585,14 @@ export default function ReminderScreen() {
       <Modal
         visible={isZikhrModalVisible}
         onRequestClose={() => setIsZikhrModalVisible(false)}
-        animationType="slide"
+        animationType="none"
         transparent
       >
         <View style={styles.modalWrapper}>
           <Pressable style={styles.modalBackdrop} onPress={() => setIsZikhrModalVisible(false)} />
           <View style={styles.modalSheet}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Zikir seç</Text>
+              <Text style={styles.modalTitle}>Zikir Seçiniz</Text>
               <TouchableOpacity onPress={() => setIsZikhrModalVisible(false)} hitSlop={10}>
                 <MaterialIcons name="close" size={22} color="#e6e7e9" />
               </TouchableOpacity>
