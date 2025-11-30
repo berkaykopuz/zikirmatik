@@ -7,8 +7,8 @@ import { useZikhr } from '@/context/ZikhrContext';
 export default function SettingsScreen() {
     const router = useRouter();
     const {
-        soundEnabled,
-        setSoundEnabled,
+        sfxEnabled,
+        setSfxEnabled,
         vibrationEnabled,
         setVibrationEnabled,
         appearanceMode,
@@ -51,10 +51,10 @@ export default function SettingsScreen() {
                             <Text style={styles.rowLabel}>Ses Efektleri</Text>
                         </View>
                         <Switch
-                            value={soundEnabled}
-                            onValueChange={setSoundEnabled}
+                            value={sfxEnabled}
+                            onValueChange={setSfxEnabled}
                             trackColor={{ false: '#3a3d42', true: '#03c459' }}
-                            thumbColor={soundEnabled ? '#ffffff' : '#f4f3f4'}
+                            thumbColor={sfxEnabled ? '#ffffff' : '#f4f3f4'}
                         />
                     </View>
 

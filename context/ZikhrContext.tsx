@@ -26,10 +26,12 @@ type ZikhrContextValue = {
   resetZikhrProgress: (name: string) => void;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
+  sfxEnabled: boolean;
+  setSfxEnabled: (enabled: boolean) => void;
   vibrationEnabled: boolean;
   setVibrationEnabled: (enabled: boolean) => void;
-  appearanceMode: 'digital' | 'beads';
-  setAppearanceMode: (mode: 'digital' | 'beads') => void;
+  appearanceMode: 'beads' | 'digital';
+  setAppearanceMode: (mode: 'beads' | 'digital') => void;
   backgroundImage: string | null;
   setBackgroundImage: (image: string | null) => void;
   resetAllData: () => Promise<void>;
@@ -51,8 +53,9 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [completedZikhrs, setCompletedZikhrs] = useState<CompletedZikhr[]>([]);
   const [progressMap, setProgressMap] = useState<ZikhrProgressMap>({});
   const [soundEnabled, setSoundEnabledState] = useState(true);
+  const [sfxEnabled, setSfxEnabledState] = useState(true);
   const [vibrationEnabled, setVibrationEnabledState] = useState(true);
-  const [appearanceMode, setAppearanceModeState] = useState<'digital' | 'beads'>('digital');
+  const [appearanceMode, setAppearanceModeState] = useState<'beads' | 'digital'>('beads');
   const [backgroundImage, setBackgroundImageState] = useState<string | null>(null);
 
   const zikhrs = useMemo(() => [...ZIKHR_ITEMS, ...customZikhrs], [customZikhrs]);
@@ -239,6 +242,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
         if (stored) {
           const parsed = JSON.parse(stored);
           if (typeof parsed.soundEnabled === 'boolean') setSoundEnabledState(parsed.soundEnabled);
+          if (typeof parsed.sfxEnabled === 'boolean') setSfxEnabledState(parsed.sfxEnabled);
           if (typeof parsed.vibrationEnabled === 'boolean') setVibrationEnabledState(parsed.vibrationEnabled);
           if (parsed.appearanceMode) setAppearanceModeState(parsed.appearanceMode);
           if (parsed.backgroundImage !== undefined) setBackgroundImageState(parsed.backgroundImage);
@@ -291,22 +295,27 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       soundEnabled,
       setSoundEnabled: (enabled: boolean) => {
         setSoundEnabledState(enabled);
-        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled: enabled, vibrationEnabled, appearanceMode, backgroundImage }));
+        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled: enabled, sfxEnabled, vibrationEnabled, appearanceMode, backgroundImage }));
+      },
+      sfxEnabled,
+      setSfxEnabled: (enabled: boolean) => {
+        setSfxEnabledState(enabled);
+        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, sfxEnabled: enabled, vibrationEnabled, appearanceMode, backgroundImage }));
       },
       vibrationEnabled,
       setVibrationEnabled: (enabled: boolean) => {
         setVibrationEnabledState(enabled);
-        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, vibrationEnabled: enabled, appearanceMode, backgroundImage }));
+        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, sfxEnabled, vibrationEnabled: enabled, appearanceMode, backgroundImage }));
       },
       appearanceMode,
-      setAppearanceMode: (mode: 'digital' | 'beads') => {
+      setAppearanceMode: (mode: 'beads' | 'digital') => {
         setAppearanceModeState(mode);
-        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, vibrationEnabled, appearanceMode: mode, backgroundImage }));
+        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, sfxEnabled, vibrationEnabled, appearanceMode: mode, backgroundImage }));
       },
       backgroundImage,
       setBackgroundImage: (image: string | null) => {
         setBackgroundImageState(image);
-        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, vibrationEnabled, appearanceMode, backgroundImage: image }));
+        void AsyncStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ soundEnabled, sfxEnabled, vibrationEnabled, appearanceMode, backgroundImage: image }));
       },
       resetAllData: async () => {
         try {
@@ -316,8 +325,9 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
           setCompletedZikhrs([]);
           setProgressMap({});
           setSoundEnabledState(true);
+          setSfxEnabledState(true);
           setVibrationEnabledState(true);
-          setAppearanceModeState('digital');
+          setAppearanceModeState('beads');
           setBackgroundImageState(null);
         } catch (error) {
           console.warn('Failed to reset data', error);
@@ -336,6 +346,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       updateZikhrProgress,
       resetZikhrProgress,
       soundEnabled,
+      sfxEnabled,
       vibrationEnabled,
       appearanceMode,
       backgroundImage,

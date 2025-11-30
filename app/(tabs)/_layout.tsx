@@ -60,14 +60,6 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
-        name="esmaulhusna"
-        options={{
-          title: 'Esma-ül Hüsna',
-          tabBarIcon: ({ color }) => <Ionicons name="book" size={24} color={color} />,
-        }}
-      />
-
-      <Tabs.Screen
         name="placeholder"
         options={{
           title: '',

@@ -5,10 +5,12 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
+import { ESMA_UL_HUSNA, EsmaUlHusnaItem } from '@/constants/esmaulhusna';
 import { ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
 import { useZikhr } from '@/context/ZikhrContext';
 
 const FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteZikhrNames';
+const ESMAUL_HUSNA_FAVORITES_STORAGE_KEY = '@zikirmatik/favoriteEsmaulHusnaNames';
 const COMPLETED_FILTERS = {
   all: { label: 'Toplam', durationMs: null },
   daily: { label: 'Günlük', durationMs: 24 * 60 * 60 * 1000 },
@@ -38,15 +40,27 @@ export default function ZikhrsScreen() {
   const [newZikhrCount, setNewZikhrCount] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [favoriteNames, setFavoriteNames] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'available' | 'completed'>('available');
+  const [activeTab, setActiveTab] = useState<'available' | 'esmaulhusna' | 'completed'>('available');
   const [completedFilter, setCompletedFilter] = useState<CompletedFilter>('all');
   const [isFilterMenuVisible, setFilterMenuVisible] = useState(false);
+  const [esmaulHusnaSearchQuery, setEsmaulHusnaSearchQuery] = useState('');
+  const [selectedEsmaulHusna, setSelectedEsmaulHusna] = useState<EsmaUlHusnaItem | null>(null);
+  const [isEsmaulHusnaModalVisible, setEsmaulHusnaModalVisible] = useState(false);
+  const [esmaulHusnaFavoriteNames, setEsmaulHusnaFavoriteNames] = useState<string[]>([]);
 
   const persistFavorites = useCallback(async (names: string[]) => {
     try {
       await AsyncStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(names));
     } catch (error) {
       console.warn('Favori zikirler kaydedilemedi', error);
+    }
+  }, []);
+
+  const persistEsmaulHusnaFavorites = useCallback(async (names: string[]) => {
+    try {
+      await AsyncStorage.setItem(ESMAUL_HUSNA_FAVORITES_STORAGE_KEY, JSON.stringify(names));
+    } catch (error) {
+      console.warn('Favori Esmaül Hüsna kaydedilemedi', error);
     }
   }, []);
 
@@ -81,7 +95,39 @@ export default function ZikhrsScreen() {
     });
   }, [zikhrs, persistFavorites]);
 
+  useEffect(() => {
+    const loadEsmaulHusnaFavorites = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(ESMAUL_HUSNA_FAVORITES_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            const onlyStrings = parsed.filter((item) => typeof item === 'string');
+            setEsmaulHusnaFavoriteNames(onlyStrings);
+          }
+        }
+      } catch (error) {
+        console.warn('Favori Esmaül Hüsna yüklenemedi', error);
+      }
+    };
+
+    void loadEsmaulHusnaFavorites();
+  }, []);
+
+  useEffect(() => {
+    setEsmaulHusnaFavoriteNames((prev) => {
+      if (!prev.length) return prev;
+      const validNames = prev.filter((name) => ESMA_UL_HUSNA.some((item) => item.name === name));
+      if (validNames.length === prev.length) {
+        return prev;
+      }
+      void persistEsmaulHusnaFavorites(validNames);
+      return validNames;
+    });
+  }, [persistEsmaulHusnaFavorites]);
+
   const favoriteSet = useMemo(() => new Set(favoriteNames), [favoriteNames]);
+  const esmaulHusnaFavoriteSet = useMemo(() => new Set(esmaulHusnaFavoriteNames), [esmaulHusnaFavoriteNames]);
 
   const favoriteItems = useMemo(
     () =>
@@ -91,20 +137,28 @@ export default function ZikhrsScreen() {
     [favoriteNames, zikhrs],
   );
 
+  // Create a set of Esmaul Husna names to filter them out from zikhrs list
+  const esmaulHusnaNamesSet = useMemo(() => {
+    return new Set(ESMA_UL_HUSNA.map((item) => item.name));
+  }, []);
+
   const sortedZikhrs = useMemo(() => {
+    // Filter out Esmaul Husna items from zikhrs list
+    const filteredZikhrs = zikhrs.filter((item) => !esmaulHusnaNamesSet.has(item.name));
+    
     if (!favoriteNames.length) {
-      return zikhrs;
+      return filteredZikhrs;
     }
     const favoritesOrdered: ZikhrItem[] = [];
     favoriteNames.forEach((name) => {
-      const found = zikhrs.find((item) => item.name === name);
+      const found = filteredZikhrs.find((item) => item.name === name);
       if (found) {
         favoritesOrdered.push(found);
       }
     });
-    const remaining = zikhrs.filter((item) => !favoriteSet.has(item.name));
+    const remaining = filteredZikhrs.filter((item) => !favoriteSet.has(item.name));
     return [...favoritesOrdered, ...remaining];
-  }, [favoriteNames, favoriteSet, zikhrs]);
+  }, [favoriteNames, favoriteSet, zikhrs, esmaulHusnaNamesSet]);
 
   const addFavorite = useCallback(
     (name: string) => {
@@ -251,6 +305,100 @@ export default function ZikhrsScreen() {
     }
   }, []);
 
+  const filteredEsmaulHusna = useMemo(() => {
+    return ESMA_UL_HUSNA.filter(
+      (item) =>
+        item.name.toLowerCase().includes(esmaulHusnaSearchQuery.toLowerCase()) ||
+        item.meaning.toLowerCase().includes(esmaulHusnaSearchQuery.toLowerCase())
+    );
+  }, [esmaulHusnaSearchQuery]);
+
+  const sortedEsmaulHusna = useMemo(() => {
+    if (!esmaulHusnaFavoriteNames.length) {
+      return filteredEsmaulHusna;
+    }
+    const favoritesOrdered: EsmaUlHusnaItem[] = [];
+    esmaulHusnaFavoriteNames.forEach((name) => {
+      const found = filteredEsmaulHusna.find((item) => item.name === name);
+      if (found) {
+        favoritesOrdered.push(found);
+      }
+    });
+    const remaining = filteredEsmaulHusna.filter((item) => !esmaulHusnaFavoriteSet.has(item.name));
+    return [...favoritesOrdered, ...remaining];
+  }, [filteredEsmaulHusna, esmaulHusnaFavoriteNames, esmaulHusnaFavoriteSet]);
+
+  const handleStartEsmaulHusna = useCallback(() => {
+    if (!selectedEsmaulHusna) return;
+
+    // Check if this Esmaul Husna already exists in zikhrs
+    const existingZikhr = zikhrs.find((z) => z.name === selectedEsmaulHusna.name);
+    
+    if (existingZikhr) {
+      // Use existing zikhr
+      const currentProgress = zikhrProgress[existingZikhr.name] ?? 0;
+      const remaining = Math.max(existingZikhr.count - currentProgress, 0);
+      const isComplete = currentProgress > 0 && remaining === 0;
+      
+      if (isComplete) {
+        // Reset if complete
+        resetZikhrProgress(existingZikhr.name);
+      }
+      setRunningZikhr(existingZikhr);
+    } else {
+      // Add new zikhr if it doesn't exist
+      const newZikhr = {
+        name: selectedEsmaulHusna.name,
+        description: selectedEsmaulHusna.meaning,
+        count: selectedEsmaulHusna.count,
+      };
+      addZikhr(newZikhr);
+      setRunningZikhr(newZikhr);
+    }
+
+    setSelectedEsmaulHusna(null);
+    setEsmaulHusnaModalVisible(false);
+    router.replace('/');
+  }, [selectedEsmaulHusna, zikhrs, zikhrProgress, addZikhr, resetZikhrProgress, setRunningZikhr, router]);
+
+  const openEsmaulHusnaDetails = useCallback((item: EsmaUlHusnaItem) => {
+    setSelectedEsmaulHusna(item);
+    setEsmaulHusnaModalVisible(true);
+  }, []);
+
+  // Calculate Esmaul Husna modal progress info
+  const esmaulHusnaSelectedProgress = useMemo(() => {
+    if (!selectedEsmaulHusna) return 0;
+    // Check if it exists in zikhrs
+    const existingZikhr = zikhrs.find((z) => z.name === selectedEsmaulHusna.name);
+    if (existingZikhr) {
+      return zikhrProgress[existingZikhr.name] ?? 0;
+    }
+    return 0;
+  }, [selectedEsmaulHusna, zikhrs, zikhrProgress]);
+
+  const esmaulHusnaSelectedTarget = selectedEsmaulHusna?.count ?? 0;
+  const esmaulHusnaSelectedRemaining = selectedEsmaulHusna
+    ? Math.max(esmaulHusnaSelectedTarget - esmaulHusnaSelectedProgress, 0)
+    : 0;
+  const hasEsmaulHusnaPartialProgress =
+    Boolean(selectedEsmaulHusna) && esmaulHusnaSelectedProgress > 0 && esmaulHusnaSelectedRemaining > 0;
+  const isEsmaulHusnaComplete =
+    Boolean(selectedEsmaulHusna) && esmaulHusnaSelectedProgress > 0 && esmaulHusnaSelectedRemaining === 0;
+  const esmaulHusnaModalActionLabel = hasEsmaulHusnaPartialProgress ? 'Devam Et' : 'Başlat';
+
+  const toggleEsmaulHusnaFavorite = useCallback(
+    (name: string) => {
+      setEsmaulHusnaFavoriteNames((prev) => {
+        const exists = prev.includes(name);
+        const updated = exists ? prev.filter((item) => item !== name) : [name, ...prev];
+        void persistEsmaulHusnaFavorites(updated);
+        return updated;
+      });
+    },
+    [persistEsmaulHusnaFavorites],
+  );
+
   return (
     <View style={styles.container}>
       {/*ZIKIRLER TITLE <Text style={styles.title}></Text>*/} 
@@ -262,6 +410,15 @@ export default function ZikhrsScreen() {
           onPress={() => setActiveTab('available')}
         >
           <Text style={[styles.tabButtonText, activeTab === 'available' && styles.activeTabButtonText]}>Zikirler</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabButton, activeTab === 'esmaulhusna' && styles.activeTabButton]}
+          activeOpacity={0.85}
+          onPress={() => setActiveTab('esmaulhusna')}
+        >
+          <Text style={[styles.tabButtonText, activeTab === 'esmaulhusna' && styles.activeTabButtonText]}>
+            Esmaül Hüsna
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tabButton, activeTab === 'completed' && styles.activeTabButton]}
@@ -294,7 +451,7 @@ export default function ZikhrsScreen() {
             const progressRatio = item.count > 0 ? Math.min(currentProgress / item.count, 1) : 0;
             return (
               <TouchableOpacity
-                key={item.name}
+                key={`zikhr-${item.name}`}
                 style={styles.card}
                 activeOpacity={0.85}
                 onPress={() => openZikhrDetails(item)}
@@ -333,6 +490,65 @@ export default function ZikhrsScreen() {
             );
           })}
         </ScrollView>
+      ) : activeTab === 'esmaulhusna' ? (
+        <View style={styles.esmaulHusnaSection}>
+          <View style={styles.searchContainer}>
+            <Ionicons name="search" size={20} color="#a7acb5" style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="İsim veya anlam ara..."
+              placeholderTextColor="#6f737a"
+              value={esmaulHusnaSearchQuery}
+              onChangeText={setEsmaulHusnaSearchQuery}
+            />
+          </View>
+          <ScrollView contentContainerStyle={styles.list}>
+            {sortedEsmaulHusna.map((item) => {
+              const isFavorite = esmaulHusnaFavoriteSet.has(item.name);
+              const currentProgress = zikhrProgress[item.name] ?? 0;
+              const progressRatio = item.count > 0 ? Math.min(currentProgress / item.count, 1) : 0;
+              return (
+                <TouchableOpacity
+                  key={`esmaul-${item.name}`}
+                  style={styles.card}
+                  activeOpacity={0.85}
+                  onPress={() => openEsmaulHusnaDetails(item)}
+                >
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardTitleRow}>
+                      <Text style={styles.cardTitle}>{item.name}</Text>
+                    </View>
+                    <Pressable
+                      hitSlop={10}
+                      style={styles.favoriteIconButton}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        toggleEsmaulHusnaFavorite(item.name);
+                      }}
+                    >
+                      <Ionicons
+                        name={isFavorite ? 'star' : 'star-outline'}
+                        size={20}
+                        color={isFavorite ? '#ffbf00' : '#6f737a'}
+                      />
+                    </Pressable>
+                  </View>
+                  <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
+                    {item.meaning}
+                  </Text>
+                  <View style={styles.progressContainer}>
+                    <View style={styles.progressTrack}>
+                      <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+                    </View>
+                    <Text style={styles.progressLabel}>
+                      {currentProgress}/{item.count} tamamlandı
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
       ) : (
         <View style={styles.completedSection}>
           <View style={styles.filterTray}>
@@ -476,6 +692,48 @@ export default function ZikhrsScreen() {
           </Pressable>
         </BlurView>
       </Modal>
+
+      <Modal
+        visible={isEsmaulHusnaModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setEsmaulHusnaModalVisible(false);
+          setSelectedEsmaulHusna(null);
+        }}
+      >
+        <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
+          <Pressable
+            style={styles.modalBackdropPressable}
+            onPress={() => {
+              setEsmaulHusnaModalVisible(false);
+              setSelectedEsmaulHusna(null);
+            }}
+          >
+            <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+              {selectedEsmaulHusna && (
+                <>
+                  <Text style={styles.modalTitle}>{selectedEsmaulHusna.name}</Text>
+                  <Text style={styles.modalDescription}>{selectedEsmaulHusna.meaning}</Text>
+                  <View style={styles.modalInfoRow}>
+                    <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
+                    <Text style={styles.modalInfoValue}>{selectedEsmaulHusna.count}</Text>
+                  </View>
+                  <View style={styles.modalButtonsRow}>
+                    <TouchableOpacity
+                      style={styles.modalRunButton}
+                      activeOpacity={0.9}
+                      onPress={handleStartEsmaulHusna}
+                    >
+                      <Text style={styles.modalRunButtonText}>{esmaulHusnaModalActionLabel}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </Pressable>
+          </Pressable>
+        </BlurView>
+      </Modal>
     </View>
   );
 }
@@ -528,6 +786,41 @@ const styles = StyleSheet.create({
   },
   completedSection: {
     flex: 1,
+  },
+  esmaulHusnaSection: {
+    flex: 1,
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#2c2f34',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    paddingVertical: 12,
+    color: '#e6e7e9',
+    fontSize: 15,
+  },
+  countBadge: {
+    backgroundColor: '#26292f',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  countText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#a7acb5',
   },
   card: {
     backgroundColor: '#2c2f34',

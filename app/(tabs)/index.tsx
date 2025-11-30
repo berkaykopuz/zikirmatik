@@ -1,9 +1,10 @@
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import Svg, { Circle } from 'react-native-svg';
@@ -32,6 +33,7 @@ export default function HomeScreen() {
     resetZikhrProgress,
     soundEnabled,
     setSoundEnabled,
+    sfxEnabled,
     vibrationEnabled,
     appearanceMode,
     backgroundImage,
@@ -41,6 +43,7 @@ export default function HomeScreen() {
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const isInitialLoadRef = useRef(true);
 
   const router = useRouter();
 
@@ -49,6 +52,7 @@ export default function HomeScreen() {
       setTarget(DAILY_TARGET);
       setCount(0);
       setHasCompleted(false);
+      isInitialLoadRef.current = true;
       return;
     }
 
@@ -58,8 +62,12 @@ export default function HomeScreen() {
     setTarget(nextTarget);
     setCount(storedProgress);
     setHasCompleted(storedProgress >= nextTarget && nextTarget > 0);
+    isInitialLoadRef.current = true;
+    // Reset flag after a brief delay to allow initial load to complete
+    setTimeout(() => {
+      isInitialLoadRef.current = false;
+    }, 0);
   }, [selectedZikhr, zikhrProgress]);
-
 
   const progress = target > 0 ? Math.min(count / target, 1) : 0;
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -73,27 +81,42 @@ export default function HomeScreen() {
     Alert.alert('Tebrikler!', selectedZikhr?.name + ' zikrini tamamladınız.');
   }, [selectedZikhr?.name, vibrationEnabled]);
 
-  // Check in every step if it is completed
-  const increment = () => {
-
-    setCount((prev) => {
-      const updated = prev + 1;
-
-      if (selectedZikhr) {
-        // Update progress, but allow it to go beyond target
-        updateZikhrProgress(selectedZikhr.name, updated);
-
-        // Notify completion only once when target is exactly reached
-        if (!hasCompleted && updated === target && target > 0) {
+  // Sync progress to context when count changes (but not when loading from context)
+  useEffect(() => {
+    if (!selectedZikhr || isInitialLoadRef.current) return;
+    
+    // Only update if count is different from stored progress to avoid loops
+    const storedProgress = zikhrProgress[selectedZikhr.name] ?? 0;
+    if (count !== storedProgress) {
+      // Defer context update to avoid updating during render
+      queueMicrotask(() => {
+        updateZikhrProgress(selectedZikhr.name, count);
+        
+        // Check for completion
+        if (!hasCompleted && count === target && target > 0) {
           setHasCompleted(true);
           addCompletedZikhr(selectedZikhr);
           notifyCompletion();
-          // Do NOT reset or redirect, just let the user continue
         }
-      }
+      });
+    }
+  }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion]);
 
-      return updated;
-    });
+  const increment = () => {
+    if (!selectedZikhr) return;
+
+    // Play boncuk sound effect if sound is enabled
+    if (sfxEnabled) {
+      try {
+        boncukPlayer.seekTo(0);
+        boncukPlayer.play();
+      } catch (e) {
+        // Ignore errors if player is not ready
+      }
+    }
+
+    // Update local state - useEffect will handle context updates
+    setCount((prev) => prev + 1);
   };
 
   // Reset Zikirmatik
@@ -156,6 +179,9 @@ export default function HomeScreen() {
 
   // Play n Pause the music automatically
   const player = useAudioPlayer(require('@/assets/music/ney.mp3'));
+  
+  // Boncuk (bead click) sound effect
+  const boncukPlayer = useAudioPlayer(require('@/assets/music/bead.mp3'));
 
   useEffect(() => {
     try {
@@ -200,8 +226,8 @@ export default function HomeScreen() {
             style={styles.iconButton}
             onPress={() => setSoundEnabled(!soundEnabled)}
           >
-            <MaterialIcons
-              name={soundEnabled ? "volume-up" : "volume-off"}
+            <MaterialCommunityIcons
+              name={soundEnabled ? "music" : "music-off"}
               size={24}
               color={backgroundImage ? "#FFFFFF" : "#e6e7e9"}
             />
@@ -277,10 +303,10 @@ export default function HomeScreen() {
                   activeOpacity={1}
                   style={[styles.mainButton]}
                   onPress={() => {
-                    increment();
                     if (vibrationEnabled) {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                     }
+                    increment();
                   }}
                 >
                   <View style={styles.mainButtonInner}>
@@ -306,7 +332,7 @@ export default function HomeScreen() {
           <View style={styles.hadithHeader}>
             <Text style={styles.hadithTitle}>Günün Hadisi</Text>
             <TouchableOpacity style={styles.hadithShareButton} onPress={shareHadith}>
-              <Text style={styles.hadithShareButtonText}>Paylaş</Text>
+              <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
             </TouchableOpacity>
           </View>
           <Text style={styles.hadithText} numberOfLines={2}>{dailyHadith.text}</Text>
@@ -645,22 +671,23 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   hadithSection: {
-    width: '100%',
+    width: '90%',
     backgroundColor: '#2c2f34',
     borderRadius: 12,
-    padding: 15,
+    padding: 12,
     bottom: 15,
-    position: "absolute"
+    position: "absolute",
+    left: '5%',
   },
   hadithHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 8,
     position: 'relative',
   },
   hadithTitle: {
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#ffbf00',
     textAlign: 'left',
@@ -673,26 +700,26 @@ const styles = StyleSheet.create({
   hadithShareButton: {
     position: 'absolute',
     right: 0,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     backgroundColor: '#ffbf00',
     borderRadius: 6,
   },
   hadithShareButtonText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
     color: '#0b2f1b',
     letterSpacing: 0.5,
   },
   hadithText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 18,
     color: '#e6e7e9',
     textAlign: 'justify',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   hadithSource: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#e6e7e9',
     opacity: 0.8,
     textAlign: 'right',
