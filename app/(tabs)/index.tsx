@@ -5,8 +5,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-
+import { Alert, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 
 import { BeadCounter } from '@/components/BeadCounter';
@@ -102,23 +101,6 @@ export default function HomeScreen() {
     }
   }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion]);
 
-  const increment = () => {
-    if (!selectedZikhr) return;
-
-    // Play boncuk sound effect if sound is enabled
-    if (sfxEnabled) {
-      try {
-        boncukPlayer.seekTo(0);
-        boncukPlayer.play();
-      } catch (e) {
-        // Ignore errors if player is not ready
-      }
-    }
-
-    // Update local state - useEffect will handle context updates
-    setCount((prev) => prev + 1);
-  };
-
   // Reset Zikirmatik
   const reset = () => {
     if (!selectedZikhr) return;
@@ -182,6 +164,23 @@ export default function HomeScreen() {
   
   // Boncuk (bead click) sound effect
   const boncukPlayer = useAudioPlayer(require('@/assets/music/bead.mp3'));
+
+  const increment = useCallback(() => {
+    if (!selectedZikhr) return;
+
+    // Play bead-boncuk sound effect if sound is enabled
+    if (sfxEnabled) {
+      try {
+        boncukPlayer.seekTo(0);
+        boncukPlayer.play();
+      } catch (e) {
+        // Ignore errors if player is not ready
+      }
+    }
+
+    // Update local state - useEffect will handle context updates
+    setCount((prev) => prev + 1);
+  }, [selectedZikhr, sfxEnabled, boncukPlayer]);
 
   useEffect(() => {
     try {
@@ -331,6 +330,11 @@ export default function HomeScreen() {
         >
           <View style={styles.hadithHeader}>
             <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+            <Image
+              source={require('@/assets/images/hadith-arabic.png')}
+              style={styles.hadithArabicImage}
+              resizeMode="contain"
+            />
             <TouchableOpacity style={styles.hadithShareButton} onPress={shareHadith}>
               <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
             </TouchableOpacity>
@@ -692,6 +696,11 @@ const styles = StyleSheet.create({
     color: '#ffbf00',
     textAlign: 'left',
   },
+  hadithArabicImage: {
+    height: 30,
+    width: 80,
+    left:2,
+  },
   shareButton: {
     position: 'absolute',
     right: 1,
@@ -706,7 +715,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   hadithShareButtonText: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#0b2f1b',
     letterSpacing: 0.5,
