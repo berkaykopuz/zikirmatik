@@ -11,6 +11,8 @@ import Svg, { Circle } from 'react-native-svg';
 import { BeadCounter } from '@/components/BeadCounter';
 import { useZikhr } from '@/context/ZikhrContext';
 
+import { getDailyHadith } from '@/constants/hadiths';
+
 const { width } = Dimensions.get('window');
 const DEVICE_WIDTH = width * 0.6;
 const DEVICE_HEIGHT = DEVICE_WIDTH * 1.2;
@@ -130,10 +132,7 @@ export default function HomeScreen() {
     );
   };
 
-  const dailyHadith = {
-    text: 'Kim bir Müslüman ayıbı örterse. Allah da dünya ve ahirette onu aynısını örter.',
-    source: 'Hadis-i Şerif',
-  };
+  const dailyHadith = getDailyHadith();
 
   const formatCount = (num: number) => {
     return String(num).padStart(5, '0');
@@ -329,7 +328,7 @@ export default function HomeScreen() {
           activeOpacity={0.9}
         >
           <View style={styles.hadithHeader}>
-            <Text style={styles.hadithTitle}>Günün Hadisi</Text>
+            <Text style={styles.hadithTitle}>Günün Anlatısı</Text>
             <Image
               source={require('@/assets/images/hadith-arabic.png')}
               style={styles.hadithArabicImage}
@@ -375,7 +374,7 @@ export default function HomeScreen() {
               <Text style={styles.modalDescription}>{selectedZikhr?.description}</Text>
 
               <View style={styles.modalInfoRow}>
-                <Text style={styles.modalInfoLabel}>Hedef</Text>
+                <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
                 <Text style={styles.modalInfoValue}>{target}</Text>
               </View>
 
@@ -400,7 +399,7 @@ export default function HomeScreen() {
           <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" experimentalBlurMethod="dimezisBlurView" />
           <Pressable style={styles.modalBackdropPressable} onPress={() => setHadithInfoVisible(false)}>
             <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
-              <Text style={styles.modalTitle}>Günün Hadisi</Text>
+              <Text style={styles.modalTitle}>Günün Anlatısı</Text>
               <Text style={styles.modalDescription}>{dailyHadith.text}</Text>
               <Text style={[styles.hadithSource, { textAlign: 'center', marginTop: 10 }]}>{dailyHadith.source}</Text>
 
