@@ -20,7 +20,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.berkaykopuz.zikirmatikapp"
+      "package": "com.berkaykopuz.zikirmatikapp",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "static",
@@ -78,7 +82,8 @@
           "sounds": []
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      "expo-dev-client"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -87,6 +92,12 @@
     "assets": [
       "./assets/fonts/"
     ],
-    "entryPoint": "./App.js"
+    "entryPoint": "./App.js",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "4d97e1b0-fca1-4b23-b5f6-818a25aa227c"
+      }
+    }
   }
 }

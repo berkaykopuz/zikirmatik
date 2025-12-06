@@ -16,6 +16,8 @@ export default function SettingsScreen() {
         backgroundImage,
         setBackgroundImage,
         resetAllData,
+        volumeCountEnabled, 
+        setVolumeCountEnabled
     } = useZikhr();
 
     const handleReset = () => {
@@ -89,6 +91,22 @@ export default function SettingsScreen() {
                     </View>
 
                     <View style={styles.separator} />
+
+                    <View style={styles.row}>
+                        <View style={styles.rowLeft}>
+                            {/* Donanım özelliği olduğu için hardware-chip ikonu veya add-circle */}
+                            <Ionicons name="hardware-chip-outline" size={22} color="#e6e7e9" />
+                            <View>
+                                <Text style={styles.rowLabel}>Ses Tuşlarıyla Zikir Say</Text>
+                            </View>
+                        </View>
+                        <Switch
+                            value={volumeCountEnabled}
+                            onValueChange={setVolumeCountEnabled}
+                            trackColor={{ false: '#3a3d42', true: '#03c459' }}
+                            thumbColor={volumeCountEnabled ? '#ffffff' : '#f4f3f4'}
+                        />
+                    </View>
 
                     <View style={styles.row}>
                         <View style={styles.rowLeft}>

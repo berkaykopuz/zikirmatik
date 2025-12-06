@@ -7,7 +7,7 @@ import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
-
+import { VolumeManager } from 'react-native-volume-manager';
 import { BeadCounter } from '@/components/BeadCounter';
 import { useZikhr } from '@/context/ZikhrContext';
 
@@ -23,6 +23,7 @@ const PROGRESS_RING_GAP = 4; // visual gap between button edge and ring inner ed
 const PROGRESS_RING_SIZE = PROGRESS_RING_STROKE + MAIN_BUTTON_SIZE + (2 * PROGRESS_RING_GAP);
 const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
+let lastPressTime = 0;
 
 export default function HomeScreen() {
   const {
@@ -35,6 +36,7 @@ export default function HomeScreen() {
     soundEnabled,
     setSoundEnabled,
     sfxEnabled,
+    volumeCountEnabled,
     vibrationEnabled,
     appearanceMode,
     backgroundImage,
@@ -103,6 +105,7 @@ export default function HomeScreen() {
     }
   }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion]);
 
+
   // Reset Zikirmatik
   const reset = () => {
     if (!selectedZikhr) return;
@@ -165,7 +168,6 @@ export default function HomeScreen() {
   const boncukPlayer = useAudioPlayer(require('@/assets/music/bead.mp3'));
 
   const increment = useCallback(() => {
-    if (!selectedZikhr) return;
 
     // Play bead-boncuk sound effect if sound is enabled
     if (sfxEnabled) {
@@ -200,6 +202,34 @@ export default function HomeScreen() {
       }
     };
   }, [soundEnabled, player]);
+
+  // Volume button listener to increment zikhr
+  useEffect(() => {
+    if (!volumeCountEnabled) return;
+
+    VolumeManager.showNativeVolumeUI({ enabled: false });
+
+    VolumeManager.setVolume(0.2);
+
+    const volumeListener = VolumeManager.addVolumeListener((result) => {
+      
+      const now = Date.now();
+
+      if (now - lastPressTime < 120) return;
+
+      lastPressTime = now;
+
+      setTimeout(() => VolumeManager.setVolume(0.2), 1);
+
+      increment();
+    });
+
+    return () => {
+      volumeListener.remove();
+      VolumeManager.showNativeVolumeUI({ enabled: true });
+    };
+
+  }, [selectedZikhr, increment, volumeCountEnabled]);
 
   const getBackgroundImage = () => {
     switch (backgroundImage) {
@@ -242,7 +272,14 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.contentContainer}>
           <TouchableOpacity
             style={styles.zikirBar}
-            onPress={() => setZikirInfoVisible(true)}
+            onPress={() => {
+              if (!selectedZikhr) {
+                router.push('/zikhrs');
+              }
+              else{
+                setZikirInfoVisible(true);
+              }
+            }}
             activeOpacity={0.8}
           >
             <View style={styles.zikirBarCenter}>
