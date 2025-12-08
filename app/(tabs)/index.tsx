@@ -1,15 +1,19 @@
+import { BeadCounter } from '@/components/BeadCounter';
+import { useZikhr } from '@/context/ZikhrContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAudioPlayer } from 'expo-audio';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { VolumeManager } from 'react-native-volume-manager';
-import { BeadCounter } from '@/components/BeadCounter';
-import { useZikhr } from '@/context/ZikhrContext';
+
+import { ZikhrHomeWidget } from "@/widgets/ZikhrHomeWidget";
+import { requestWidgetUpdate } from "react-native-android-widget";
 
 import { getDailyHadith } from '@/constants/hadiths';
 
@@ -47,15 +51,65 @@ export default function HomeScreen() {
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   const isInitialLoadRef = useRef(true);
+  const previousZikhrNameRef = useRef<string | null>(null);
 
   const router = useRouter();
 
+  // SYNC ANDROID WIDGET 
+  const syncWidget = useCallback(async () => {
+    if (!selectedZikhr) return;
+
+    try {
+      // Persist widget data to AsyncStorage FIRST so widget handler can read it
+      await AsyncStorage.multiSet([
+        ["activeZikrName", selectedZikhr.name],
+        ["activeZikrCount", String(count)],
+        ["activeZikrTarget", String(target)],
+      ]);
+
+      // Update the widget via requestWidgetUpdate
+      // Use React.createElement to avoid React Compiler optimizations that conflict with widget context
+      // This will trigger the widget handler which reads from AsyncStorage
+      await requestWidgetUpdate({
+        widgetName: "ZikhrHome",
+        renderWidget: () =>
+          React.createElement(ZikhrHomeWidget, {
+            zikrName: selectedZikhr.name,
+            count: count,
+            target: target,
+          }),
+        // optional but nice for debugging
+        widgetNotFound: () => {
+          console.log("No ZikhrHome widget on the home screen");
+        },
+      });
+    } catch (e) {
+      console.warn("Widget sync failed", e);
+    }
+  }, [selectedZikhr, count, target]);
+
+  // Load zikhr data when selectedZikhr changes (only when switching zikhrs, not when progress updates)
   useEffect(() => {
+    const currentZikhrName = selectedZikhr?.name ?? null;
+    
+    // Only run if the zikhr name actually changed
+    if (previousZikhrNameRef.current === currentZikhrName) {
+      return;
+    }
+    
+    previousZikhrNameRef.current = currentZikhrName;
+    
     if (!selectedZikhr) {
       setTarget(DAILY_TARGET);
       setCount(0);
       setHasCompleted(false);
       isInitialLoadRef.current = true;
+      // Clear widget data when no zikr is selected
+      AsyncStorage.multiSet([
+        ["activeZikrName", ""],
+        ["activeZikrCount", "0"],
+        ["activeZikrTarget", String(DAILY_TARGET)],
+      ]).catch(() => {});
       return;
     }
 
@@ -66,11 +120,28 @@ export default function HomeScreen() {
     setCount(storedProgress);
     setHasCompleted(storedProgress >= nextTarget && nextTarget > 0);
     isInitialLoadRef.current = true;
+    
+    // Persist widget data when zikr is selected (widget handler reads from AsyncStorage)
+    AsyncStorage.multiSet([
+      ["activeZikrName", selectedZikhr.name],
+      ["activeZikrCount", String(storedProgress)],
+      ["activeZikrTarget", String(nextTarget)],
+    ]).then(() => {
+      // Sync widget after data is persisted and state is updated
+      // Use setTimeout to ensure state updates have been applied
+      setTimeout(() => {
+        if (selectedZikhr) {
+          syncWidget();
+        }
+      }, 0);
+    }).catch(() => {});
+    
     // Reset flag after a brief delay to allow initial load to complete
     setTimeout(() => {
       isInitialLoadRef.current = false;
     }, 0);
-  }, [selectedZikhr, zikhrProgress]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedZikhr?.name, zikhrProgress]); // Include zikhrProgress to read latest value, but use ref to prevent re-runs
 
   const progress = target > 0 ? Math.min(count / target, 1) : 0;
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -87,6 +158,9 @@ export default function HomeScreen() {
   // Sync progress to context when count changes (but not when loading from context)
   useEffect(() => {
     if (!selectedZikhr || isInitialLoadRef.current) return;
+
+    // Widget Synchronization - sync immediately when count changes
+    syncWidget();
     
     // Only update if count is different from stored progress to avoid loops
     const storedProgress = zikhrProgress[selectedZikhr.name] ?? 0;
@@ -103,7 +177,7 @@ export default function HomeScreen() {
         }
       });
     }
-  }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion]);
+  }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion, syncWidget]);
 
 
   // Reset Zikirmatik
@@ -121,13 +195,14 @@ export default function HomeScreen() {
         {
           text: 'Sıfırla',
           style: 'destructive',
-          onPress: () => {
+          onPress: async () => {
             setCount(0);
             setHasCompleted(false);
             resetZikhrProgress(selectedZikhr.name);
             if (vibrationEnabled) {
               Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
             }
+            // Widget will sync via useEffect when count changes to 0
           },
         },
       ],
@@ -169,6 +244,10 @@ export default function HomeScreen() {
 
   const increment = useCallback(() => {
 
+    if (vibrationEnabled) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    }
+    
     // Play bead-boncuk sound effect if sound is enabled
     if (sfxEnabled) {
       try {
@@ -337,12 +416,7 @@ export default function HomeScreen() {
                 <TouchableOpacity
                   activeOpacity={1}
                   style={[styles.mainButton]}
-                  onPress={() => {
-                    if (vibrationEnabled) {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    }
-                    increment();
-                  }}
+                  onPress={increment}
                 >
                   <View style={styles.mainButtonInner}>
                     <View style={styles.mainButtonPattern} />

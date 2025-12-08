@@ -31,6 +31,29 @@
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
+      [
+        "react-native-android-widget",
+        {
+          "fonts": ["./assets/fonts/DS-DIGI.ttf"],   
+
+          "widgets": [
+            {
+              "name": "ZikhrHome",
+              "label": "Zikirmatik",
+
+              "minWidth": "200dp",
+              "minHeight": "110dp",
+              "targetCellWidth": 2,
+              "targetCellHeight": 2,
+
+              "description": "Zikir ismi ve sayacı",
+              "previewImage": "./assets/widget-preview/zikhr-home.png",
+              "updatePeriodMillis": 1800000
+            }
+          ]
+        }
+      ],
+      
       "expo-router",
       [
         "expo-splash-screen",
@@ -92,7 +115,7 @@
     "assets": [
       "./assets/fonts/"
     ],
-    "entryPoint": "./App.js",
+    "entryPoint": "./index.ts",
     "extra": {
       "router": {},
       "eas": {

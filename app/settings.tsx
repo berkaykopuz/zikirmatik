@@ -97,7 +97,7 @@ export default function SettingsScreen() {
                             {/* Donanım özelliği olduğu için hardware-chip ikonu veya add-circle */}
                             <Ionicons name="hardware-chip-outline" size={22} color="#e6e7e9" />
                             <View>
-                                <Text style={styles.rowLabel}>Ses Tuşlarıyla Zikir Say</Text>
+                                <Text style={styles.rowLabel}>Ses Tuşlarıyla Zikir Sayımı</Text>
                             </View>
                         </View>
                         <Switch
