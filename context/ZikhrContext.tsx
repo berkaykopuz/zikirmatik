@@ -18,12 +18,14 @@ type ZikhrContextValue = {
   selectedZikhr: ZikhrItem | null;
   setSelectedZikhr: (zikhr: ZikhrItem | null) => void;
   addZikhr: (zikhr: ZikhrItem) => void;
+  updateZikhrCount: (name: string, count: number) => void;
   deleteZikhr: (zikhr: ZikhrItem) => void;
   completedZikhrs: CompletedZikhr[];
   addCompletedZikhr: (zikhr: ZikhrItem) => void;
   zikhrProgress: ZikhrProgressMap;
   updateZikhrProgress: (name: string, count: number) => void;
   resetZikhrProgress: (name: string) => void;
+  getZikhrCount: (name: string, fallbackCount: number) => number;
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   sfxEnabled: boolean;
@@ -43,6 +45,7 @@ const ZikhrContext = createContext<ZikhrContextValue | undefined>(undefined);
 const STORAGE_KEY = '@zikirmatik/customZikhrs';
 const COMPLETED_STORAGE_KEY = '@zikirmatik/completedZikhrs';
 const PROGRESS_STORAGE_KEY = '@zikirmatik/zikhrProgress';
+const COUNT_OVERRIDE_STORAGE_KEY = '@zikirmatik/zikhrCountOverrides';
 
 const SELECTED_STORAGE_KEY = '@zikirmatik/selectedZikhr';
 const SETTINGS_STORAGE_KEY = '@zikirmatik/settings';
@@ -54,6 +57,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [customsHydrated, setCustomsHydrated] = useState(false);
   const [completedZikhrs, setCompletedZikhrs] = useState<CompletedZikhr[]>([]);
   const [progressMap, setProgressMap] = useState<ZikhrProgressMap>({});
+  const [countOverrides, setCountOverrides] = useState<Record<string, number>>({});
   const [soundEnabled, setSoundEnabledState] = useState(true);
   const [sfxEnabled, setSfxEnabledState] = useState(true);
   const [volumeCountEnabled, setVolumeCountEnabledState] = useState(true);
@@ -61,7 +65,24 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [appearanceMode, setAppearanceModeState] = useState<'beads' | 'digital'>('beads');
   const [backgroundImage, setBackgroundImageState] = useState<string | null>(null);
 
-  const zikhrs = useMemo(() => [...ZIKHR_ITEMS, ...customZikhrs], [customZikhrs]);
+  const zikhrs = useMemo(() => {
+    const merged = [...ZIKHR_ITEMS, ...customZikhrs];
+    if (!Object.keys(countOverrides).length) {
+      return merged;
+    }
+    return merged.map((item) => {
+      const override = countOverrides[item.name];
+      return override ? { ...item, count: override } : item;
+    });
+  }, [customZikhrs, countOverrides]);
+
+  const saveCountOverrides = useCallback(async (data: Record<string, number>) => {
+    try {
+      await AsyncStorage.setItem(COUNT_OVERRIDE_STORAGE_KEY, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Failed to save zikhr count overrides', error);
+    }
+  }, []);
 
   const saveCustomZikhrs = useCallback(async (items: ZikhrItem[]) => {
     try {
@@ -101,6 +122,49 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       selectZikhr(zikhr);
     },
     [saveCustomZikhrs, selectZikhr],
+  );
+
+  const updateZikhrCount = useCallback(
+    (name: string, count: number) => {
+      const safeCount = Math.max(1, Math.floor(count));
+
+      // Persist override for all zikhrs (built-in + custom)
+      setCountOverrides((prev) => {
+        const next = { ...prev, [name]: safeCount };
+        void saveCountOverrides(next);
+        return next;
+      });
+
+      // If it is a custom zikhr, also update the stored entity so it survives clearing overrides
+      setCustomZikhrs((prev) => {
+        const index = prev.findIndex((item) => item.name === name);
+        if (index === -1) {
+          return prev;
+        }
+        const updated = [...prev];
+        updated[index] = { ...updated[index], count: safeCount };
+        void saveCustomZikhrs(updated);
+        return updated;
+      });
+
+      // Keep selected zikhr in sync with the new count
+      setSelectedZikhr((prev) => {
+        if (!prev || prev.name !== name) return prev;
+        const nextSelected = { ...prev, count: safeCount };
+        void saveSelectedZikhr(nextSelected);
+        return nextSelected;
+      });
+    },
+    [saveCountOverrides, saveCustomZikhrs, saveSelectedZikhr],
+  );
+
+  const getZikhrCount = useCallback(
+    (name: string, fallbackCount: number) => {
+      const override = countOverrides[name];
+      if (override !== undefined) return override;
+      return fallbackCount;
+    },
+    [countOverrides],
   );
   const saveProgressMap = useCallback(async (data: ZikhrProgressMap) => {
     try {
@@ -203,6 +267,24 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    const loadCountOverrides = async () => {
+      try {
+        const stored = await AsyncStorage.getItem(COUNT_OVERRIDE_STORAGE_KEY);
+        if (stored) {
+          const parsed: Record<string, number> = JSON.parse(stored);
+          if (parsed && typeof parsed === 'object') {
+            setCountOverrides(parsed);
+          }
+        }
+      } catch (error) {
+        console.warn('Failed to load zikhr count overrides', error);
+      }
+    };
+
+    void loadCountOverrides();
+  }, []);
+
+  useEffect(() => {
     const loadCompletedZikhrs = async () => {
       try {
         const stored = await AsyncStorage.getItem(COMPLETED_STORAGE_KEY);
@@ -284,18 +366,30 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
     void loadSelectedZikhr();
   }, [customsHydrated, selectZikhr, selectionHydrated, zikhrs]);
 
+  // Keep selected zikhr updated when overrides change
+  useEffect(() => {
+    if (!selectedZikhr) return;
+    const match = zikhrs.find((item) => item.name === selectedZikhr.name);
+    if (match && match.count !== selectedZikhr.count) {
+      setSelectedZikhr(match);
+      void saveSelectedZikhr(match);
+    }
+  }, [selectedZikhr, zikhrs, saveSelectedZikhr]);
+
   const value = useMemo(
     () => ({
       zikhrs,
       selectedZikhr,
       setSelectedZikhr: selectZikhr,
       addZikhr,
+      updateZikhrCount,
       deleteZikhr,
       completedZikhrs,
       addCompletedZikhr,
       zikhrProgress: progressMap,
       updateZikhrProgress,
       resetZikhrProgress,
+      getZikhrCount,
       soundEnabled,
       setSoundEnabled: (enabled: boolean) => {
         setSoundEnabledState(enabled);
@@ -333,6 +427,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
           setSelectedZikhr(null);
           setCompletedZikhrs([]);
           setProgressMap({});
+          setCountOverrides({});
           setSoundEnabledState(true);
           setSfxEnabledState(true);
           setVolumeCountEnabledState(true);
@@ -349,12 +444,14 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
       selectedZikhr,
       selectZikhr,
       addZikhr,
+      updateZikhrCount,
       deleteZikhr,
       completedZikhrs,
       addCompletedZikhr,
       progressMap,
       updateZikhrProgress,
       resetZikhrProgress,
+      getZikhrCount,
       soundEnabled,
       sfxEnabled,
       volumeCountEnabled,

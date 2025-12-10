@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AntDesign from '@expo/vector-icons/AntDesign';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
@@ -31,6 +32,8 @@ export default function ZikhrsScreen() {
     completedZikhrs,
     zikhrProgress,
     resetZikhrProgress,
+    updateZikhrCount,
+    getZikhrCount,
   } = useZikhr();
 
   const [isModalVisible, setModalVisible] = useState(false);
@@ -47,6 +50,10 @@ export default function ZikhrsScreen() {
   const [selectedEsmaulHusna, setSelectedEsmaulHusna] = useState<EsmaUlHusnaItem | null>(null);
   const [isEsmaulHusnaModalVisible, setEsmaulHusnaModalVisible] = useState(false);
   const [esmaulHusnaFavoriteNames, setEsmaulHusnaFavoriteNames] = useState<string[]>([]);
+  const [isEditModalVisible, setEditModalVisible] = useState(false);
+  const [editTargetName, setEditTargetName] = useState<string | null>(null);
+  const [editCountInput, setEditCountInput] = useState('');
+  const [editError, setEditError] = useState<string | null>(null);
 
   const persistFavorites = useCallback(async (names: string[]) => {
     try {
@@ -208,7 +215,7 @@ export default function ZikhrsScreen() {
   const selected = previewZikhr;
   const isUserCreated = selected ? !ZIKHR_ITEMS.some((item) => item.name === selected.name) : false;
   const selectedProgress = selected ? zikhrProgress[selected.name] ?? 0 : 0;
-  const selectedTarget = selected?.count ?? 0;
+  const selectedTarget = selected ? getZikhrCount(selected.name, selected.count ?? 0) : 0;
   const selectedRemaining = selected ? Math.max(selectedTarget - selectedProgress, 0) : 0;
   const hasSelectedPartialProgress = Boolean(selected) && selectedProgress > 0 && selectedRemaining > 0;
   const isSelectedComplete = Boolean(selected) && selectedProgress > 0 && selectedRemaining === 0;
@@ -219,6 +226,42 @@ export default function ZikhrsScreen() {
     setNewZikhrCount('');
     setCreateError(null);
   };
+
+  const closeEditModal = useCallback(() => {
+    setEditModalVisible(false);
+    setEditTargetName(null);
+    setEditCountInput('');
+    setEditError(null);
+  }, []);
+
+  const openEditCountModal = useCallback((name: string, currentCount: number) => {
+    setEditTargetName(name);
+    setEditCountInput(String(currentCount));
+    setEditError(null);
+    setEditModalVisible(true);
+  }, []);
+
+  const handleSaveEditedCount = useCallback(() => {
+    if (!editTargetName) return;
+
+    const parsed = Number.parseInt(editCountInput, 10);
+    if (Number.isNaN(parsed) || parsed <= 0) {
+      setEditError('Lütfen 0\'dan büyük bir sayı girin.');
+      return;
+    }
+
+    updateZikhrCount(editTargetName, parsed);
+
+    // Keep currently previewed entities in sync locally
+    setPreviewZikhr((prev) =>
+      prev && prev.name === editTargetName ? { ...prev, count: parsed } : prev
+    );
+    setSelectedEsmaulHusna((prev) =>
+      prev && prev.name === editTargetName ? { ...prev, count: parsed } : prev
+    );
+
+    closeEditModal();
+  }, [editTargetName, editCountInput, updateZikhrCount, closeEditModal]);
 
   const closeCreateModal = () => {
     resetCreateForm();
@@ -350,7 +393,7 @@ export default function ZikhrsScreen() {
       const newZikhr = {
         name: selectedEsmaulHusna.name,
         description: selectedEsmaulHusna.meaning,
-        count: selectedEsmaulHusna.count,
+        count: getZikhrCount(selectedEsmaulHusna.name, selectedEsmaulHusna.count),
       };
       addZikhr(newZikhr);
       setRunningZikhr(newZikhr);
@@ -359,7 +402,7 @@ export default function ZikhrsScreen() {
     setSelectedEsmaulHusna(null);
     setEsmaulHusnaModalVisible(false);
     router.replace('/');
-  }, [selectedEsmaulHusna, zikhrs, zikhrProgress, addZikhr, resetZikhrProgress, setRunningZikhr, router]);
+  }, [selectedEsmaulHusna, zikhrs, zikhrProgress, addZikhr, resetZikhrProgress, setRunningZikhr, router, getZikhrCount]);
 
   const openEsmaulHusnaDetails = useCallback((item: EsmaUlHusnaItem) => {
     setSelectedEsmaulHusna(item);
@@ -377,7 +420,9 @@ export default function ZikhrsScreen() {
     return 0;
   }, [selectedEsmaulHusna, zikhrs, zikhrProgress]);
 
-  const esmaulHusnaSelectedTarget = selectedEsmaulHusna?.count ?? 0;
+  const esmaulHusnaSelectedTarget = selectedEsmaulHusna
+    ? getZikhrCount(selectedEsmaulHusna.name, selectedEsmaulHusna.count ?? 0)
+    : 0;
   const esmaulHusnaSelectedRemaining = selectedEsmaulHusna
     ? Math.max(esmaulHusnaSelectedTarget - esmaulHusnaSelectedProgress, 0)
     : 0;
@@ -460,9 +505,10 @@ export default function ZikhrsScreen() {
                   <View style={styles.cardTitleRow}>
                     <Text style={styles.cardTitle}>{item.name}</Text>
                   </View>
-                  <Pressable
+                  <TouchableOpacity
                     hitSlop={10}
                     style={styles.favoriteIconButton}
+                    activeOpacity={0.5}
                     onPress={(event) => {
                       event.stopPropagation();
                       toggleFavorite(item.name);
@@ -473,7 +519,7 @@ export default function ZikhrsScreen() {
                       size={20}
                       color={isFavorite ? '#ffbf00' : '#6f737a'}
                     />
-                  </Pressable>
+                  </TouchableOpacity>
                 </View>
                 <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
                   {item.description}
@@ -482,9 +528,21 @@ export default function ZikhrsScreen() {
                   <View style={styles.progressTrack}>
                     <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
                   </View>
+                <View style={styles.progressMetaRow}>
                   <Text style={styles.progressLabel}>
                     {currentProgress}/{item.count} tamamlandı
                   </Text>
+                  <Pressable
+                    hitSlop={10}
+                    style={styles.editIconButton}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      openEditCountModal(item.name, item.count);
+                    }}
+                  >
+                    <AntDesign name="edit" size={18} color="#ffbf00" />
+                  </Pressable>
+                </View>
                 </View>
               </TouchableOpacity>
             );
@@ -506,7 +564,8 @@ export default function ZikhrsScreen() {
             {sortedEsmaulHusna.map((item) => {
               const isFavorite = esmaulHusnaFavoriteSet.has(item.name);
               const currentProgress = zikhrProgress[item.name] ?? 0;
-              const progressRatio = item.count > 0 ? Math.min(currentProgress / item.count, 1) : 0;
+              const effectiveCount = getZikhrCount(item.name, item.count);
+              const progressRatio = effectiveCount > 0 ? Math.min(currentProgress / effectiveCount, 1) : 0;
               return (
                 <TouchableOpacity
                   key={`esmaul-${item.name}`}
@@ -518,9 +577,10 @@ export default function ZikhrsScreen() {
                     <View style={styles.cardTitleRow}>
                       <Text style={styles.cardTitle}>{item.name}</Text>
                     </View>
-                    <Pressable
+                    <TouchableOpacity
                       hitSlop={10}
                       style={styles.favoriteIconButton}
+                      activeOpacity={0.5}
                       onPress={(event) => {
                         event.stopPropagation();
                         toggleEsmaulHusnaFavorite(item.name);
@@ -531,7 +591,7 @@ export default function ZikhrsScreen() {
                         size={20}
                         color={isFavorite ? '#ffbf00' : '#6f737a'}
                       />
-                    </Pressable>
+                    </TouchableOpacity>
                   </View>
                   <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
                     {item.meaning}
@@ -540,9 +600,21 @@ export default function ZikhrsScreen() {
                     <View style={styles.progressTrack}>
                       <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
                     </View>
-                    <Text style={styles.progressLabel}>
-                      {currentProgress}/{item.count} tamamlandı
-                    </Text>
+                    <View style={styles.progressMetaRow}>
+                      <Text style={styles.progressLabel}>
+                        {currentProgress}/{effectiveCount} tamamlandı
+                      </Text>
+                      <Pressable
+                        hitSlop={10}
+                        style={styles.editIconButton}
+                        onPress={(event) => {
+                          event.stopPropagation();
+                          openEditCountModal(item.name, effectiveCount);
+                        }}
+                      >
+                        <AntDesign name="edit" size={18} color="#ffbf00" />
+                      </Pressable>
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -596,7 +668,13 @@ export default function ZikhrsScreen() {
               filteredCompletedHistory.map((entry) => (
                 <View key={entry.id} style={[styles.card, styles.completedCard]}>
                   <View style={styles.completedHeader}>
-                    <Text style={styles.cardTitle}>{entry.name}</Text>
+                    <Text
+                      style={[styles.cardTitle, styles.completedTitle]}
+                      numberOfLines={3}
+                      ellipsizeMode="tail"
+                    >
+                      {entry.name}
+                    </Text>
                     <View style={styles.completedCountBadge}>
                       <Ionicons name="checkmark-circle" size={16} color="#0b2f1b" />
                       <Text style={styles.completedCountText}>{entry.count} Adet Çekildi</Text>
@@ -626,7 +704,18 @@ export default function ZikhrsScreen() {
               <Text style={styles.modalDescription}>{selected?.description}</Text>
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
-                <Text style={styles.modalInfoValue}>{selected?.count}</Text>
+                <View style={styles.modalInfoValueRow}>
+                  <Text style={styles.modalInfoValue}>{selectedTarget}</Text>
+                  {selected ? (
+                    <Pressable
+                      hitSlop={10}
+                      style={styles.editIconButton}
+                      onPress={() => openEditCountModal(selected.name, selectedTarget)}
+                    >
+                      <AntDesign name="edit" size={18} color="#ffbf00" />
+                    </Pressable>
+                  ) : null}
+                </View>
               </View>
               <View style={styles.modalButtonsRow}>
                 {isUserCreated && (
@@ -694,6 +783,44 @@ export default function ZikhrsScreen() {
       </Modal>
 
       <Modal
+        visible={isEditModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeEditModal}
+      >
+        <BlurView intensity={50} experimentalBlurMethod="dimezisBlurView" tint="dark" style={styles.modalBackdrop}>
+          <Pressable style={styles.modalBackdropPressable} onPress={closeEditModal}>
+            <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
+              <Text style={styles.modalTitle}>Zikir Adedini Düzenle</Text>
+              {editTargetName ? (
+                <Text style={[styles.modalDescription, { marginBottom: 12 }]}>{editTargetName}</Text>
+              ) : null}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Yeni Adet</Text>
+                <TextInput
+                  style={styles.modalInput}
+                  placeholder="Örn. 33"
+                  placeholderTextColor="#6f737a"
+                  value={editCountInput}
+                  onChangeText={setEditCountInput}
+                  keyboardType="numeric"
+                />
+              </View>
+              {editError ? <Text style={styles.modalErrorText}>{editError}</Text> : null}
+              <View style={styles.modalButtonsRow}>
+                <TouchableOpacity style={styles.modalCancelButton} activeOpacity={0.9} onPress={closeEditModal}>
+                  <Text style={styles.modalCancelButtonText}>İptal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.modalRunButton} activeOpacity={0.9} onPress={handleSaveEditedCount}>
+                  <Text style={styles.modalRunButtonText}>Kaydet</Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
+          </Pressable>
+        </BlurView>
+      </Modal>
+
+      <Modal
         visible={isEsmaulHusnaModalVisible}
         transparent
         animationType="fade"
@@ -717,7 +844,18 @@ export default function ZikhrsScreen() {
                   <Text style={styles.modalDescription}>{selectedEsmaulHusna.meaning}</Text>
                   <View style={styles.modalInfoRow}>
                     <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
-                    <Text style={styles.modalInfoValue}>{selectedEsmaulHusna.count}</Text>
+                    <View style={styles.modalInfoValueRow}>
+                      <Text style={styles.modalInfoValue}>{esmaulHusnaSelectedTarget}</Text>
+                      <Pressable
+                        hitSlop={10}
+                        style={styles.editIconButton}
+                        onPress={() =>
+                          openEditCountModal(selectedEsmaulHusna.name, esmaulHusnaSelectedTarget)
+                        }
+                      >
+                        <AntDesign name="edit" size={18} color="#ffbf00" />
+                      </Pressable>
+                    </View>
                   </View>
                   <View style={styles.modalButtonsRow}>
                     <TouchableOpacity
@@ -858,6 +996,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#e6e7e9',
   },
+  completedTitle: {
+    flex: 1,
+    flexShrink: 1,
+    lineHeight: 20,
+  },
   cardDesc: {
     fontSize: 13,
     color: '#a7acb5',
@@ -887,6 +1030,16 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#a7acb5',
     fontWeight: '500',
+  },
+  progressMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  editIconButton: {
+    padding: 4,
+    marginLeft: 'auto',
   },
   completedCard: {
     gap: 8,
@@ -1029,6 +1182,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#a7acb5',
     fontWeight: '600',
+  },
+  modalInfoValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   modalInfoValue: {
     fontSize: 16,

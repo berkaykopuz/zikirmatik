@@ -14,6 +14,18 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
+const navTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#2c2f34',
+    card: '#2c2f34',
+    border: '#3a3d42',
+    text: '#e6e7e9',
+    primary: '#58d5ba',
+  },
+};
+
 export default function App() {
   // Use `useFonts` only if you can't use the config plugin.
   const [loaded, error] = useFonts({
@@ -34,13 +46,19 @@ export default function App() {
   //Theme section can be changed.
   return (
     <ZikhrProvider>
-      <ThemeProvider value={DefaultTheme}> 
-        <Stack>
+      <ThemeProvider value={navTheme}> 
+        <Stack
+          screenOptions={{
+            headerStyle: { backgroundColor: '#2c2f34' },
+            headerTintColor: '#e6e7e9',
+            headerTitleStyle: { color: '#e6e7e9' },
+            contentStyle: { backgroundColor: '#1f2025' },
+          }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="settings" options={{ animation: 'none' }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
         </Stack>
-        <StatusBar style="auto" />
+        <StatusBar style="light" backgroundColor="#2c2f34" />
       </ThemeProvider>
     </ZikhrProvider>
   );

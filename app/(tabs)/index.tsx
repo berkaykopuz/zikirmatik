@@ -8,7 +8,7 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { VolumeManager } from 'react-native-volume-manager';
 
@@ -52,6 +52,7 @@ export default function HomeScreen() {
   const [hasCompleted, setHasCompleted] = useState(false);
   const isInitialLoadRef = useRef(true);
   const previousZikhrNameRef = useRef<string | null>(null);
+  const buttonScale = useRef(new Animated.Value(1)).current;
 
   const router = useRouter();
 
@@ -93,7 +94,7 @@ export default function HomeScreen() {
     const currentZikhrName = selectedZikhr?.name ?? null;
     
     // Only run if the zikhr name actually changed
-    if (previousZikhrNameRef.current === currentZikhrName) {
+    if (previousZikhrNameRef.current === currentZikhrName && selectedZikhr?.count === target) {
       return;
     }
     
@@ -141,7 +142,7 @@ export default function HomeScreen() {
       isInitialLoadRef.current = false;
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedZikhr?.name, zikhrProgress]); // Include zikhrProgress to read latest value, but use ref to prevent re-runs
+  }, [selectedZikhr?.name, selectedZikhr?.count, zikhrProgress]); // Include zikhrProgress to read latest value, but use ref to prevent re-runs
 
   const progress = target > 0 ? Math.min(count / target, 1) : 0;
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -413,15 +414,40 @@ export default function HomeScreen() {
                   )}
                 </View>
 
-                <TouchableOpacity
-                  activeOpacity={1}
-                  style={[styles.mainButton]}
-                  onPress={increment}
+                <Animated.View
+                  style={[
+                    styles.mainButton,
+                    {
+                      transform: [{ scale: buttonScale }],
+                    },
+                  ]}
                 >
-                  <View style={styles.mainButtonInner}>
-                    <View style={styles.mainButtonPattern} />
-                  </View>
-                </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={1}
+                    style={styles.mainButtonTouchable}
+                    onPress={increment}
+                    onPressIn={() => {
+                      Animated.spring(buttonScale, {
+                        toValue: 0.95,
+                        useNativeDriver: true,
+                        tension: 300,
+                        friction: 10,
+                      }).start();
+                    }}
+                    onPressOut={() => {
+                      Animated.spring(buttonScale, {
+                        toValue: 1,
+                        useNativeDriver: true,
+                        tension: 300,
+                        friction: 10,
+                      }).start();
+                    }}
+                  >
+                    <View style={styles.mainButtonInner}>
+                      <View style={styles.mainButtonPattern} />
+                    </View>
+                  </TouchableOpacity>
+                </Animated.View>
 
                 <TouchableOpacity
                   style={styles.resetButtonSmall}
@@ -703,9 +729,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 6,
   },
-  mainButtonPressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
+  mainButtonTouchable: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   mainButtonInner: {
     width: MAIN_BUTTON_SIZE - 10,

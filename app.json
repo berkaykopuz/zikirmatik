@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "zikirmatik-app",
+    "name": "Zikirmatik",
     "slug": "zikirmatik-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icons/icon.png",
     "scheme": "zikirmatikapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -14,9 +14,7 @@
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+        "foregroundImage": "./assets/icons/icon.png"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
@@ -41,12 +39,11 @@
               "name": "ZikhrHome",
               "label": "Zikirmatik",
 
-              "minWidth": "200dp",
-              "minHeight": "110dp",
+              "minWidth": "140dp",
+              "minHeight": "120dp",
               "targetCellWidth": 2,
               "targetCellHeight": 2,
 
-              "description": "Zikir ismi ve sayacı",
               "previewImage": "./assets/widget-preview/zikhr-home.png",
               "updatePeriodMillis": 1800000
             }
@@ -58,7 +55,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/icons/icon.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#ffffff",
@@ -100,7 +97,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/android-icon-foreground.png",
+          "icon": "./assets/icons/icon.png",
           "color": "#03c459",
           "sounds": []
         }

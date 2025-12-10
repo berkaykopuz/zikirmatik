@@ -8,9 +8,13 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
+  const baseTabBarHeight = 48;
+  const bottomInset = Math.max(insets.bottom, 10); // keep bar above Android nav buttons
 
   return (
     <Tabs
@@ -24,15 +28,21 @@ export default function TabLayout() {
           backgroundColor: '#2c2f34',
           borderTopWidth: 1,
           borderTopColor: '#3a3d42',
-          height: 65,
-          paddingTop: 0,
+          height: baseTabBarHeight + 3,
+          paddingTop: 1,
+          paddingBottom: 8,
+          marginBottom: bottomInset, // reserve space so bar sits above system nav
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '600',
         },
         tabBarIconStyle: {
-          marginTop: 4,
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          alignItems: 'center',
+          justifyContent: 'center',
         },
       }}>
 
@@ -40,7 +50,7 @@ export default function TabLayout() {
         name="zikhrs"
         options={{
           title: 'Zikirler',
-          tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal-circle" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <Ionicons name="ellipsis-horizontal-circle" size={22} color={color} />,
         }}
       />
 
@@ -48,7 +58,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Ana Sayfa',
-          tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <FontAwesome5 name="mosque" size={22} color={color} />,
         }}
       />
 
@@ -56,7 +66,7 @@ export default function TabLayout() {
         name="reminder"
         options={{
           title: 'Hatırlatıcı',
-          tabBarIcon: ({ color }) => <MaterialIcons name="alarm" size={24} color={color} />,
+          tabBarIcon: ({ color }) => <MaterialIcons name="alarm" size={22} color={color} />,
         }}
       />
 
@@ -64,10 +74,9 @@ export default function TabLayout() {
         name="placeholder"
         options={{
           title: '',
-          tabBarIcon: () => <IconSymbol size={28} name="circle.fill" color="transparent" />,
+          tabBarIcon: () => <IconSymbol size={24} name="circle.fill" color="transparent" />,
           tabBarItemStyle: {
-            opacity: 0,
-            pointerEvents: 'none',
+            display: 'none', // do not reserve space so visible tabs stay centered
           },
         }}
       />
