@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import 'react-native-reanimated';
 
+import { StreakProvider } from '@/context/StreakContext';
 import { ZikhrProvider } from '@/context/ZikhrContext';
 
 export const unstable_settings = {
@@ -45,21 +46,23 @@ export default function App() {
 
   //Theme section can be changed.
   return (
-    <ZikhrProvider>
-      <ThemeProvider value={navTheme}> 
-        <Stack
-          screenOptions={{
-            headerStyle: { backgroundColor: '#2c2f34' },
-            headerTintColor: '#e6e7e9',
-            headerTitleStyle: { color: '#e6e7e9' },
-            contentStyle: { backgroundColor: '#1f2025' },
-          }}>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="settings" options={{ animation: 'none' }} />
-          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-        </Stack>
-        <StatusBar style="light" backgroundColor="#2c2f34" />
-      </ThemeProvider>
-    </ZikhrProvider>
+    <StreakProvider>
+      <ZikhrProvider>
+        <ThemeProvider value={navTheme}> 
+          <Stack
+            screenOptions={{
+              headerStyle: { backgroundColor: '#2c2f34' },
+              headerTintColor: '#e6e7e9',
+              headerTitleStyle: { color: '#e6e7e9' },
+              contentStyle: { backgroundColor: '#1f2025' },
+            }}>
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="settings" options={{ animation: 'none' }} />
+            <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          </Stack>
+          <StatusBar style="light" backgroundColor="#2c2f34" />
+        </ThemeProvider>
+      </ZikhrProvider>
+    </StreakProvider>
   );
 }

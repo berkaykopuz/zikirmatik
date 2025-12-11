@@ -3,6 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import { Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 
 import { useZikhr } from '@/context/ZikhrContext';
+import { useStreak } from '@/context/StreakContext';
 
 export default function SettingsScreen() {
     const router = useRouter();
@@ -19,6 +20,7 @@ export default function SettingsScreen() {
         volumeCountEnabled, 
         setVolumeCountEnabled
     } = useZikhr();
+    const { resetStreak } = useStreak();
 
     const handleReset = () => {
         Alert.alert(
@@ -31,6 +33,7 @@ export default function SettingsScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         await resetAllData();
+                        await resetStreak();
                         Alert.alert('Başarılı', 'Tüm veriler sıfırlandı.');
                         router.replace('/');
                     },

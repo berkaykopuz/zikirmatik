@@ -1,4 +1,5 @@
 import { BeadCounter } from '@/components/BeadCounter';
+import { useStreak } from '@/context/StreakContext';
 import { useZikhr } from '@/context/ZikhrContext';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
@@ -45,16 +46,68 @@ export default function HomeScreen() {
     appearanceMode,
     backgroundImage,
   } = useZikhr();
+  const {
+    currentStreak,
+    longestStreak,
+    isTodayCompleted,
+    onDailyGoalCompleted,
+  } = useStreak();
   const [count, setCount] = useState(0);
   const [target, setTarget] = useState(DAILY_TARGET);
   const [isZikirInfoVisible, setZikirInfoVisible] = useState(false);
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
+  const [isStreakInfoVisible, setStreakInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   const isInitialLoadRef = useRef(true);
   const previousZikhrNameRef = useRef<string | null>(null);
   const buttonScale = useRef(new Animated.Value(1)).current;
+  const firePulse = useRef(new Animated.Value(1)).current;
+  const streakShine = useRef(new Animated.Value(0)).current;
+  const streakShineLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const router = useRouter();
+
+  // Shining animation for streak fire icon
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(firePulse, {
+          toValue: 1.12,
+          duration: 950,
+          useNativeDriver: true,
+        }),
+        Animated.timing(firePulse, {
+          toValue: 1,
+          duration: 950,
+          useNativeDriver: true,
+        }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [firePulse]);
+
+  // Sliding shine line for streak stats cards
+  useEffect(() => {
+    // Start shimmer only while modal is visible
+    if (isStreakInfoVisible) {
+      streakShine.setValue(0);
+      const shimmer = Animated.loop(
+        Animated.timing(streakShine, {
+          toValue: 1,
+          duration: 2200,
+          useNativeDriver: true,
+        })
+      );
+      streakShineLoopRef.current = shimmer;
+      shimmer.start();
+      return () => shimmer.stop();
+    }
+    // stop when modal is closed
+    streakShineLoopRef.current?.stop();
+    streakShineLoopRef.current = null;
+    streakShine.setValue(0);
+  }, [isStreakInfoVisible, streakShine]);
 
   // SYNC ANDROID WIDGET 
   const syncWidget = useCallback(async () => {
@@ -171,14 +224,28 @@ export default function HomeScreen() {
         updateZikhrProgress(selectedZikhr.name, count);
         
         // Check for completion
-        if (!hasCompleted && count === target && target > 0) {
+        if (!hasCompleted && count >= target && target > 0) {
           setHasCompleted(true);
           addCompletedZikhr(selectedZikhr);
           notifyCompletion();
+          if (!isTodayCompleted) {
+            void onDailyGoalCompleted();
+          }
         }
       });
     }
-  }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion, syncWidget]);
+  }, [count, selectedZikhr, target, hasCompleted, zikhrProgress, updateZikhrProgress, addCompletedZikhr, notifyCompletion, syncWidget, isTodayCompleted, onDailyGoalCompleted]);
+
+  // If progress is already complete when screen loads (e.g., app restart), make sure streak is updated once per day.
+  useEffect(() => {
+    if (!selectedZikhr) return;
+    if (isInitialLoadRef.current) return;
+    if (!hasCompleted) return;
+    if (isTodayCompleted) return;
+    if (target <= 0) return;
+
+    void onDailyGoalCompleted();
+  }, [hasCompleted, selectedZikhr, target, isTodayCompleted, onDailyGoalCompleted]);
 
 
   // Reset Zikirmatik
@@ -342,6 +409,32 @@ export default function HomeScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
+            style={[styles.iconButton, styles.streakIconButton]}
+            onPress={() => setStreakInfoVisible(true)}
+            activeOpacity={0.85}
+          >
+            <Animated.View
+              style={{
+                transform: [{ scale: firePulse }],
+                opacity: firePulse.interpolate({
+                  inputRange: [1, 1.12],
+                  outputRange: [0.75, 1],
+                }),
+              }}
+            >
+              <MaterialCommunityIcons
+                name="fire"
+                size={22}
+                color={isTodayCompleted ? "#ff7a00" : "#ffbf00"}
+              />
+            </Animated.View>
+            <View>
+              <Text style={styles.streakIconLabel}>SERİ</Text>
+              <Text style={styles.streakIconValue}>{currentStreak} gün</Text>
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
             style={styles.iconButton}
             onPress={() => router.push('/settings')}
           >
@@ -500,6 +593,100 @@ export default function HomeScreen() {
       <Modal
         animationType="fade"
         transparent={true}
+        visible={isStreakInfoVisible}
+        onRequestClose={() => setStreakInfoVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <BlurView intensity={50} style={StyleSheet.absoluteFill} tint="dark" experimentalBlurMethod="dimezisBlurView" />
+          <Pressable style={styles.modalBackdropPressable} onPress={() => setStreakInfoVisible(false)}>
+            <View style={styles.modalCard} onStartShouldSetResponder={() => true}>
+              <View style={styles.streakModalHeader}>
+                <MaterialCommunityIcons name="fire" size={26} color="#ffbf00" />
+                <Text style={[styles.modalTitle, { marginBottom: 0, flex: 1 }]}>Günlük Seri</Text>
+                <MaterialCommunityIcons
+                  name={isTodayCompleted ? 'check-decagram' : 'progress-clock'}
+                  size={22}
+                  color={isTodayCompleted ? '#03c459' : '#ffbf00'}
+                />
+              </View>
+
+              <Text style={styles.modalDescription}>
+                {currentStreak > 0
+                  ? `Tam ${currentStreak} gündür kesintisiz zikir çekiyorsun.`
+                  : 'Serini başlatmak için bugünkü hedefi tamamla.'}
+              </Text>
+
+              <View style={styles.streakModalStats}>
+                <View style={styles.streakModalStatCard}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.streakShineOutline,
+                      {
+                        opacity: streakShine.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [0.12, 0.45, 0.12],
+                        }),
+                        transform: [
+                          {
+                            scale: streakShine.interpolate({
+                              inputRange: [0, 0.5, 1],
+                              outputRange: [0.98, 1.03, 0.98],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                  <Text style={styles.streakModalStatLabel}>MEVCUT SERİ</Text>
+                  <Text style={styles.streakModalStatValue}>{currentStreak} gün</Text>
+                </View>
+                <View style={styles.streakModalStatCard}>
+                  <Animated.View
+                    pointerEvents="none"
+                    style={[
+                      styles.streakShineOutline,
+                      {
+                        opacity: streakShine.interpolate({
+                          inputRange: [0, 0.5, 1],
+                          outputRange: [0.12, 0.45, 0.12],
+                        }),
+                        transform: [
+                          {
+                            scale: streakShine.interpolate({
+                              inputRange: [0, 0.5, 1],
+                              outputRange: [0.98, 1.03, 0.98],
+                            }),
+                          },
+                        ],
+                      },
+                    ]}
+                  />
+                  <Text style={styles.streakModalStatLabel}>EN UZUN SERİ</Text>
+                  <Text style={styles.streakModalStatValue}>{longestStreak} gün</Text>
+                </View>
+              </View>
+
+              <Text style={[styles.modalDescription, { marginTop: 8, textAlign: 'center' }]}>
+                {isTodayCompleted
+                  ? 'Bugünün serisi tamamlandı. Yarın uğramayı unutma!'
+                  : 'Bugünkü hedefi bitir, alevi canlı tut.'}
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.modalCloseButton, { marginTop: 14 }]}
+                onPress={() => setStreakInfoVisible(false)}
+              >
+                <Text style={styles.modalCloseButtonText}>Kapat</Text>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </View>
+      </Modal>
+
+      <Modal
+        animationType="fade"
+        transparent={true}
         visible={isZikirInfoVisible}
         onRequestClose={() => setZikirInfoVisible(false)}
       >
@@ -576,6 +763,25 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 8,
   },
+  streakIconButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#2c2f34',
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+  },
+  streakIconLabel: {
+    color: '#a7acb5',
+    fontSize: 11,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  streakIconValue: {
+    color: '#ffbf00',
+    fontSize: 13,
+    fontWeight: '700',
+  },
   soundButton: {
     marginRight: 12,
   },
@@ -637,7 +843,7 @@ const styles = StyleSheet.create({
   device: {
     width: DEVICE_WIDTH,
     height: DEVICE_HEIGHT,
-    backgroundColor: '#131313ff',
+    backgroundColor: '#0a3420ff',
     borderRadius: DEVICE_WIDTH * 0.3,
     alignItems: 'center',
     justifyContent: 'center',
@@ -645,7 +851,7 @@ const styles = StyleSheet.create({
     paddingBottom: 25,
     position: 'relative',
     elevation: 12,
-    shadowColor: '#000',
+    shadowColor: '#ffbf00',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.7,
     shadowRadius: 12,
@@ -663,20 +869,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     borderRadius: DEVICE_WIDTH * 0.3,
     borderWidth: 1,
-    borderColor: '#2a2b30',
+    borderColor: '#ffbf00',
     opacity: 0.3,
   },
-  deviceTopHighlight: {
-    position: 'absolute',
-    top: 0,
-    left: '20%',
-    right: '20%',
-    height: '15%',
-    backgroundColor: '#1a1a1f',
-    borderTopLeftRadius: DEVICE_WIDTH * 0.3,
-    borderTopRightRadius: DEVICE_WIDTH * 0.3,
-    opacity: 0.4,
-  },
+  
+
+  
   displayContainer: {
     width: '70%',
     height: 60,
@@ -943,5 +1141,57 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#0b2f1b',
+  },
+  streakModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  streakModalStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 6,
+  },
+  streakModalStatCard: {
+    flex: 1,
+    backgroundColor: '#26292f',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+    overflow: 'hidden',
+  },
+  streakShineOutline: {
+    position: 'absolute',
+    top: -1,
+    bottom: -1,
+    left: -1,
+    right: -1,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#ffbf00',
+  },
+  streakModalStatLabel: {
+    color: '#a7acb5',
+    fontSize: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  streakModalStatValue: {
+    color: '#ffbf00',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  streakShineLine: {
+    position: 'absolute',
+    top: 8,
+    left: -120,
+    width: 90,
+    height: 3,
+    borderRadius: 999,
+    backgroundColor: '#ffbf00',
+    opacity: 0.38,
   },
 });
