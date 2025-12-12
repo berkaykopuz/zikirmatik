@@ -71,6 +71,14 @@ export default function TabLayout() {
       />
 
       <Tabs.Screen
+        name="calendar"
+        options={{
+          title: 'Takvim',
+          tabBarIcon: ({ color }) => <MaterialIcons name="calendar-today" size={22} color={color} />,
+        }}
+      />
+
+      <Tabs.Screen
         name="placeholder"
         options={{
           title: '',

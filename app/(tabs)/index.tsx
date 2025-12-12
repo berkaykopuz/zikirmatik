@@ -638,7 +638,7 @@ export default function HomeScreen() {
                       },
                     ]}
                   />
-                  <Text style={styles.streakModalStatLabel}>MEVCUT SERİ</Text>
+                  <Text style={styles.streakModalStatLabel}>MEVCUT SERİN</Text>
                   <Text style={styles.streakModalStatValue}>{currentStreak} gün</Text>
                 </View>
                 <View style={styles.streakModalStatCard}>
@@ -662,7 +662,7 @@ export default function HomeScreen() {
                       },
                     ]}
                   />
-                  <Text style={styles.streakModalStatLabel}>EN UZUN SERİ</Text>
+                  <Text style={styles.streakModalStatLabel}>EN UZUN SERİN</Text>
                   <Text style={styles.streakModalStatValue}>{longestStreak} gün</Text>
                 </View>
               </View>
@@ -1015,6 +1015,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#2c2f34',
     borderRadius: 12,
     padding: 12,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
     bottom: 15,
     position: "absolute",
     left: '5%',
