@@ -503,7 +503,12 @@ export default function ZikhrsScreen() {
               >
                 <View style={styles.cardHeader}>
                   <View style={styles.cardTitleRow}>
-                    <Text style={styles.cardTitle}>{item.name}</Text>
+                    <View style={styles.cardTitleContainer}>
+                      <Text style={styles.cardTitle}>{item.name}</Text>
+                      {item.arabicName && (
+                        <Text style={styles.cardArabicName}>{item.arabicName}</Text>
+                      )}
+                    </View>
                   </View>
                   <TouchableOpacity
                     hitSlop={10}
@@ -701,6 +706,9 @@ export default function ZikhrsScreen() {
           <Pressable style={styles.modalBackdropPressable} onPress={() => setModalVisible(false)}>
             <Pressable style={styles.modalCard} onPress={(event) => event.stopPropagation()}>
               <Text style={styles.modalTitle}>{selected?.name}</Text>
+              {selected?.arabicName && (
+                <Text style={styles.modalArabicName}>{selected.arabicName}</Text>
+              )}
               <Text style={styles.modalDescription}>{selected?.description}</Text>
               <View style={styles.modalInfoRow}>
                 <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
@@ -980,6 +988,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 6,
   },
+  cardTitleContainer: {
+    flex: 1,
+  },
   addCard: {
     borderStyle: 'dashed',
     borderColor: '#4a4d55',
@@ -995,6 +1006,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#e6e7e9',
+  },
+  cardArabicName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#e6e7e9',
+    marginTop: 4,
+    textAlign: 'left',
   },
   completedTitle: {
     flex: 1,
@@ -1155,6 +1173,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 22,
     fontWeight: '700',
+    color: '#ffbf00',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalArabicName: {
+    fontSize: 24,
+    fontWeight: '600',
     color: '#ffbf00',
     marginBottom: 12,
     textAlign: 'center',

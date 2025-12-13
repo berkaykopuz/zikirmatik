@@ -1,7 +1,9 @@
 import { Colors } from '@/constants/theme';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import React, { useMemo, useState } from 'react';
-import { Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 /*import { LinearGradient } from 'expo-linear-gradient'; // Optional: for nicer card backgrounds if installed, otherwise View is fine.*/
@@ -22,6 +24,20 @@ const SPECIAL_DAYS: Record<string, { title: string; description: string }> = {
   '2025-06-06': { title: 'Kurban Bayramı', description: 'Kurban Bayramı Arefesi.' },
 };
 
+const SPECIAL_DAYS_NOTIFICATIONS_KEY = '@zikirmatik/specialDaysNotifications';
+const ANDROID_CHANNEL_ID = 'zikirmatik-special-days';
+
+// Configure notification handler
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
 // Helper to check for Fridays (Weekly special day)
 const isFriday = (dateString: string) => {
   const date = new Date(dateString);
@@ -34,6 +50,144 @@ export default function CalendarScreen() {
   const insets = useSafeAreaInsets();
   
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  // Configure Android notification channel and schedule special day notifications
+  useEffect(() => {
+    const setupSpecialDayNotifications = async () => {
+      try {
+        // Configure Android channel
+        if (Platform.OS === 'android') {
+          await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+            name: 'Özel Günler',
+            importance: Notifications.AndroidImportance.HIGH,
+            vibrationPattern: [0, 250, 250, 250],
+            lightColor: '#03c459',
+            lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+            sound: 'default',
+          });
+        }
+
+        // Check permissions
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+          console.log('Notification permissions not granted');
+          return;
+        }
+
+        // Load previously scheduled notification IDs (stored as array of IDs per date)
+        const storedIds = await AsyncStorage.getItem(SPECIAL_DAYS_NOTIFICATIONS_KEY);
+        const scheduledIds: Record<string, string[]> = storedIds ? JSON.parse(storedIds) : {};
+
+        const now = new Date();
+        const today = now.toISOString().split('T')[0];
+
+        // Schedule notifications for each special day
+        for (const [dateString, dayInfo] of Object.entries(SPECIAL_DAYS)) {
+          // Only schedule if the date is in the future
+          if (dateString >= today) {
+            // Check if already scheduled
+            if (scheduledIds[dateString] && scheduledIds[dateString].length === 2) {
+              // Verify both notifications still exist
+              try {
+                const notifications = await Notifications.getAllScheduledNotificationsAsync();
+                const existingIds = scheduledIds[dateString].filter((id: string) =>
+                  notifications.some((n: Notifications.NotificationRequest) => n.identifier === id)
+                );
+                if (existingIds.length < 2) {
+                  // Some notifications are missing, reschedule
+                  delete scheduledIds[dateString];
+                }
+              } catch (error) {
+                console.warn('Error checking notification:', error);
+              }
+            }
+
+            // Schedule if not already scheduled (need 2 notifications)
+            if (!scheduledIds[dateString] || scheduledIds[dateString].length < 2) {
+              const notificationIds: string[] = [];
+
+              // First notification at 8:00 AM
+              const morningDate = new Date(dateString);
+              morningDate.setHours(13, 0, 0, 0);
+
+              // Second notification at 8:00 PM
+              const eveningDate = new Date(dateString);
+              eveningDate.setHours(20, 0, 0, 0);
+
+              const notificationTimes = [
+                { date: morningDate, label: 'morning' },
+                { date: eveningDate, label: 'evening' }
+              ];
+
+              for (const { date: notificationDate } of notificationTimes) {
+                // Only schedule if the date is in the future
+                if (notificationDate > now) {
+                  const notificationContent: any = {
+                    title: dayInfo.title,
+                    body: `${dayInfo.title} Kutlu Olsun. Zikrini çekmeyi unutma!`,
+                    sound: true,
+                    data: { 
+                      type: 'specialDay',
+                      date: dateString 
+                    },
+                  };
+                  
+                  if (Platform.OS === 'android') {
+                    notificationContent.channelId = ANDROID_CHANNEL_ID;
+                  }
+
+                  const notificationId = await Notifications.scheduleNotificationAsync({
+                    content: notificationContent,
+                    trigger: {
+                      type: Notifications.SchedulableTriggerInputTypes.DATE,
+                      date: notificationDate,
+                    },
+                  });
+
+                  notificationIds.push(notificationId);
+                }
+              }
+
+              if (notificationIds.length > 0) {
+                scheduledIds[dateString] = notificationIds;
+                await AsyncStorage.setItem(SPECIAL_DAYS_NOTIFICATIONS_KEY, JSON.stringify(scheduledIds));
+              }
+            }
+          }
+        }
+
+        // Clean up past notifications
+        const cleanedIds: Record<string, string[]> = {};
+        for (const [dateString, notificationIds] of Object.entries(scheduledIds)) {
+          if (dateString >= today) {
+            cleanedIds[dateString] = notificationIds;
+          } else {
+            // Cancel past notifications
+            for (const notificationId of notificationIds) {
+              try {
+                await Notifications.cancelScheduledNotificationAsync(notificationId);
+              } catch (error) {
+                console.warn('Error canceling past notification:', error);
+              }
+            }
+          }
+        }
+        await AsyncStorage.setItem(SPECIAL_DAYS_NOTIFICATIONS_KEY, JSON.stringify(cleanedIds));
+
+      } catch (error) {
+        console.warn('Error setting up special day notifications:', error);
+      }
+    };
+
+    void setupSpecialDayNotifications();
+  }, []);
 
   // Generate Marked Dates
   const markedDates = useMemo(() => {
@@ -178,7 +332,7 @@ export default function CalendarScreen() {
 
         {/* Share Button */}
         <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: '##ffbf00' }]}
+          style={[styles.actionButton, { backgroundColor: '#ffbf00' }]}
           onPress={handleShare}
           activeOpacity={0.8}
         >
@@ -249,6 +403,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 'auto', // Pushes button to bottom of card
     marginBottom: 20,
+    color: '#ffbf00',
   },
   actionButtonText: {
     color: 'black',
