@@ -9,9 +9,10 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { VolumeManager } from 'react-native-volume-manager';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 import { ZikhrHomeWidget } from "@/widgets/ZikhrHomeWidget";
 import { requestWidgetUpdate } from "react-native-android-widget";
@@ -29,6 +30,11 @@ const PROGRESS_RING_SIZE = PROGRESS_RING_STROKE + MAIN_BUTTON_SIZE + (2 * PROGRE
 const PROGRESS_RING_RADIUS = (PROGRESS_RING_SIZE - PROGRESS_RING_STROKE) / 2;
 const PROGRESS_RING_CIRCUMFERENCE = 2 * Math.PI * PROGRESS_RING_RADIUS;
 let lastPressTime = 0;
+
+// Google AdMob Banner Ad Unit ID
+const BANNER_AD_UNIT_ID = __DEV__
+  ? TestIds.BANNER
+  : 'ca-app-pub-7326975715449797/2730772321';
 
 export default function HomeScreen() {
   const {
@@ -737,6 +743,17 @@ export default function HomeScreen() {
           </Pressable>
         </View>
       </Modal>
+
+      {/* Google AdMob banner – bottom-right, above tab bar */}
+        <View style={styles.adBannerContainer}>
+          <BannerAd
+            unitId={BANNER_AD_UNIT_ID}
+            size={BannerAdSize.BANNER}
+            requestOptions={{
+              requestNonPersonalizedAdsOnly: true,
+            }}
+          />
+        </View>
     </View>
   );
 }
@@ -1017,7 +1034,7 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: '#3a3d42',
-    bottom: 15,
+    bottom: 80,
     position: "absolute",
     left: '5%',
   },
@@ -1195,5 +1212,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#ffbf00',
     opacity: 0.38,
+  },
+  adBannerContainer: {
+    position: 'absolute',
+    right: 12,
+    bottom: 16,
+    alignItems: 'flex-end',
   },
 });

@@ -32,25 +32,23 @@
       [
         "react-native-android-widget",
         {
-          "fonts": ["./assets/fonts/DS-DIGI.ttf"],   
-
+          "fonts": [
+            "./assets/fonts/DS-DIGI.ttf"
+          ],
           "widgets": [
             {
               "name": "ZikhrHome",
               "label": "Zikirmatik",
-
               "minWidth": "140dp",
               "minHeight": "120dp",
               "targetCellWidth": 2,
               "targetCellHeight": 2,
-
               "previewImage": "./assets/widget-preview/zikhr-home.png",
               "updatePeriodMillis": 1800000
             }
           ]
         }
       ],
-      
       "expo-router",
       [
         "expo-splash-screen",
@@ -103,11 +101,17 @@
         }
       ],
       "expo-audio",
-      "expo-dev-client"
-    ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
+      "expo-dev-client",
+      [
+        "react-native-google-mobile-ads",
+        {
+            "androidAppId": "ca-app-pub-7326975715449797~4674409381"
+        }
+      ]
+  ],
+  "experiments": {
+    "typedRoutes": true,
+    "reactCompiler": true
     },
     "assets": [
       "./assets/fonts/"
@@ -117,6 +121,10 @@
       "router": {},
       "eas": {
         "projectId": "4d97e1b0-fca1-4b23-b5f6-818a25aa227c"
+      },
+      "react-native-google-mobile-ads":{
+            "androidAppId": "ca-app-pub-7326975715449797~4674409381",
+            "userTrackingUsageDescription": "Tracking"
       }
     }
   }

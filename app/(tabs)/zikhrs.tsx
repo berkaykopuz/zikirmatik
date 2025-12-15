@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { BlurView } from 'expo-blur';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ESMA_UL_HUSNA, EsmaUlHusnaItem } from '@/constants/esmaulhusna';
 import { ZIKHR_ITEMS, ZikhrItem } from '@/constants/zikhrs';
@@ -19,6 +19,8 @@ const COMPLETED_FILTERS = {
   threeMonths: { label: '3 Aylık', durationMs: 90 * 24 * 60 * 60 * 1000 },
   yearly: { label: 'Yıllık', durationMs: 365 * 24 * 60 * 60 * 1000 },
 } as const;
+
+const ESMAUL_HUSNA_PAGE_SIZE = 20;
 
 type CompletedFilter = keyof typeof COMPLETED_FILTERS;
 
@@ -50,6 +52,7 @@ export default function ZikhrsScreen() {
   const [selectedEsmaulHusna, setSelectedEsmaulHusna] = useState<EsmaUlHusnaItem | null>(null);
   const [isEsmaulHusnaModalVisible, setEsmaulHusnaModalVisible] = useState(false);
   const [esmaulHusnaFavoriteNames, setEsmaulHusnaFavoriteNames] = useState<string[]>([]);
+  const [esmaulHusnaVisibleCount, setEsmaulHusnaVisibleCount] = useState(ESMAUL_HUSNA_PAGE_SIZE);
   const [isEditModalVisible, setEditModalVisible] = useState(false);
   const [editTargetName, setEditTargetName] = useState<string | null>(null);
   const [editCountInput, setEditCountInput] = useState('');
@@ -371,6 +374,24 @@ export default function ZikhrsScreen() {
     return [...favoritesOrdered, ...remaining];
   }, [filteredEsmaulHusna, esmaulHusnaFavoriteNames, esmaulHusnaFavoriteSet]);
 
+  useEffect(() => {
+    setEsmaulHusnaVisibleCount(ESMAUL_HUSNA_PAGE_SIZE);
+  }, [esmaulHusnaSearchQuery, activeTab, sortedEsmaulHusna.length]);
+
+  const visibleEsmaulHusna = useMemo(
+    () => sortedEsmaulHusna.slice(0, esmaulHusnaVisibleCount),
+    [sortedEsmaulHusna, esmaulHusnaVisibleCount],
+  );
+
+  const handleLoadMoreEsmaulHusna = useCallback(() => {
+    if (esmaulHusnaVisibleCount >= sortedEsmaulHusna.length) {
+      return;
+    }
+    setEsmaulHusnaVisibleCount((prev) =>
+      Math.min(prev + ESMAUL_HUSNA_PAGE_SIZE, sortedEsmaulHusna.length),
+    );
+  }, [esmaulHusnaVisibleCount, sortedEsmaulHusna.length]);
+
   const handleStartEsmaulHusna = useCallback(() => {
     if (!selectedEsmaulHusna) return;
 
@@ -442,6 +463,78 @@ export default function ZikhrsScreen() {
       });
     },
     [persistEsmaulHusnaFavorites],
+  );
+
+  const renderEsmaulHusnaItem = useCallback(
+    ({ item }: { item: EsmaUlHusnaItem }) => {
+      const isFavorite = esmaulHusnaFavoriteSet.has(item.name);
+      const currentProgress = zikhrProgress[item.name] ?? 0;
+      const effectiveCount = getZikhrCount(item.name, item.count);
+      const progressRatio = effectiveCount > 0 ? Math.min(currentProgress / effectiveCount, 1) : 0;
+
+      return (
+        <TouchableOpacity
+          style={styles.card}
+          activeOpacity={0.85}
+          onPress={() => openEsmaulHusnaDetails(item)}
+        >
+          <View style={styles.cardHeader}>
+            <View style={styles.cardTitleRow}>
+              <View style={styles.cardTitleContainer}>
+                <Text style={styles.cardTitle}>{item.name}</Text>
+                {item.arabicName && <Text style={styles.cardArabicName}>{item.arabicName}</Text>}
+              </View>
+            </View>
+            <TouchableOpacity
+              hitSlop={10}
+              style={styles.favoriteIconButton}
+              activeOpacity={0.5}
+              onPress={(event) => {
+                event.stopPropagation();
+                toggleEsmaulHusnaFavorite(item.name);
+              }}
+            >
+              <Ionicons
+                name={isFavorite ? 'star' : 'star-outline'}
+                size={20}
+                color={isFavorite ? '#ffbf00' : '#6f737a'}
+              />
+            </TouchableOpacity>
+          </View>
+          <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
+            {item.meaning}
+          </Text>
+          <View style={styles.progressContainer}>
+            <View style={styles.progressTrack}>
+              <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
+            </View>
+            <View style={styles.progressMetaRow}>
+              <Text style={styles.progressLabel}>
+                {currentProgress}/{effectiveCount} tamamlandı
+              </Text>
+              <Pressable
+                hitSlop={10}
+                style={styles.editIconButton}
+                onPress={(event) => {
+                  event.stopPropagation();
+                  openEditCountModal(item.name, effectiveCount);
+                }}
+              >
+                <AntDesign name="edit" size={18} color="#ffbf00" />
+              </Pressable>
+            </View>
+          </View>
+        </TouchableOpacity>
+      );
+    },
+    [
+      esmaulHusnaFavoriteSet,
+      getZikhrCount,
+      openEditCountModal,
+      openEsmaulHusnaDetails,
+      toggleEsmaulHusnaFavorite,
+      zikhrProgress,
+    ],
   );
 
   return (
@@ -565,66 +658,24 @@ export default function ZikhrsScreen() {
               onChangeText={setEsmaulHusnaSearchQuery}
             />
           </View>
-          <ScrollView contentContainerStyle={styles.list}>
-            {sortedEsmaulHusna.map((item) => {
-              const isFavorite = esmaulHusnaFavoriteSet.has(item.name);
-              const currentProgress = zikhrProgress[item.name] ?? 0;
-              const effectiveCount = getZikhrCount(item.name, item.count);
-              const progressRatio = effectiveCount > 0 ? Math.min(currentProgress / effectiveCount, 1) : 0;
-              return (
-                <TouchableOpacity
-                  key={`esmaul-${item.name}`}
-                  style={styles.card}
-                  activeOpacity={0.85}
-                  onPress={() => openEsmaulHusnaDetails(item)}
-                >
-                  <View style={styles.cardHeader}>
-                    <View style={styles.cardTitleRow}>
-                      <Text style={styles.cardTitle}>{item.name}</Text>
-                    </View>
-                    <TouchableOpacity
-                      hitSlop={10}
-                      style={styles.favoriteIconButton}
-                      activeOpacity={0.5}
-                      onPress={(event) => {
-                        event.stopPropagation();
-                        toggleEsmaulHusnaFavorite(item.name);
-                      }}
-                    >
-                      <Ionicons
-                        name={isFavorite ? 'star' : 'star-outline'}
-                        size={20}
-                        color={isFavorite ? '#ffbf00' : '#6f737a'}
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  <Text style={styles.cardDesc} numberOfLines={2} ellipsizeMode="tail">
-                    {item.meaning}
-                  </Text>
-                  <View style={styles.progressContainer}>
-                    <View style={styles.progressTrack}>
-                      <View style={[styles.progressFill, { width: `${progressRatio * 100}%` }]} />
-                    </View>
-                    <View style={styles.progressMetaRow}>
-                      <Text style={styles.progressLabel}>
-                        {currentProgress}/{effectiveCount} tamamlandı
-                      </Text>
-                      <Pressable
-                        hitSlop={10}
-                        style={styles.editIconButton}
-                        onPress={(event) => {
-                          event.stopPropagation();
-                          openEditCountModal(item.name, effectiveCount);
-                        }}
-                      >
-                        <AntDesign name="edit" size={18} color="#ffbf00" />
-                      </Pressable>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
+          <FlatList
+            data={visibleEsmaulHusna}
+            keyExtractor={(item) => `esmaul-${item.name}`}
+            renderItem={renderEsmaulHusnaItem}
+            contentContainerStyle={styles.list}
+            ItemSeparatorComponent={() => <View style={{ height: 12 }} />}
+            onEndReached={handleLoadMoreEsmaulHusna}
+            onEndReachedThreshold={0.4}
+            removeClippedSubviews
+            ListFooterComponent={
+              esmaulHusnaVisibleCount < sortedEsmaulHusna.length ? (
+                <View style={styles.lazyListFooter}>
+                  <Text style={styles.lazyListFooterText}>Kaydırdıkça daha fazla isim yüklenir</Text>
+                </View>
+              ) : null
+            }
+            showsVerticalScrollIndicator={false}
+          />
         </View>
       ) : (
         <View style={styles.completedSection}>
@@ -849,6 +900,9 @@ export default function ZikhrsScreen() {
               {selectedEsmaulHusna && (
                 <>
                   <Text style={styles.modalTitle}>{selectedEsmaulHusna.name}</Text>
+                  {selectedEsmaulHusna.arabicName && (
+                    <Text style={styles.modalArabicName}>{selectedEsmaulHusna.arabicName}</Text>
+                  )}
                   <Text style={styles.modalDescription}>{selectedEsmaulHusna.meaning}</Text>
                   <View style={styles.modalInfoRow}>
                     <Text style={styles.modalInfoLabel}>Zikir Adeti</Text>
@@ -929,6 +983,14 @@ const styles = StyleSheet.create({
   list: {
     paddingBottom: 24,
     gap: 12,
+  },
+  lazyListFooter: {
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  lazyListFooterText: {
+    fontSize: 12,
+    color: '#a7acb5',
   },
   completedSection: {
     flex: 1,

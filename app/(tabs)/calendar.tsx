@@ -18,10 +18,24 @@ LocaleConfig.locales['tr'] = {
 };
 LocaleConfig.defaultLocale = 'tr';
 
-// Mock Data for Special Days (In a real app, calculate this or fetch from API)
 const SPECIAL_DAYS: Record<string, { title: string; description: string }> = {
-  '2025-03-29': { title: 'Ramazan Bayramı', description: 'Ramazan Bayramının 1. Günü. Sevdiklerinizle bayramlaşmayı unutmayın.' },
-  '2025-06-06': { title: 'Kurban Bayramı', description: 'Kurban Bayramı Arefesi.' },
+  '2026-01-15': { title: 'Miraç Kandili', description: 'Peygamber Efendimizin göğe yükseliş mucizesinin yıl dönümü.' },
+  '2026-02-02': { title: 'Berat Kandili', description: 'Ramazan ayının habercisi, kurtuluş ve bağışlanma gecesi.' },
+  '2026-02-19': { title: 'Ramazan Başlangıcı', description: 'On bir ayın sultanı Ramazan ayının ilk günü.' },
+  '2026-03-16': { title: 'Kadir Gecesi', description: 'Kur\'an-ı Kerim\'in indirilmeye başlandığı, bin aydan hayırlı gece.' },
+  '2026-03-19': { title: 'Arefe', description: 'Ramazan Bayramı öncesi Arefe günü.' },
+  '2026-03-20': { title: 'Ramazan Bayramı (1. Gün)', description: 'Ramazan Bayramının 1. Günü. Sevdiklerinizle bayramlaşmayı unutmayın.' },
+  '2026-03-21': { title: 'Ramazan Bayramı (2. Gün)', description: 'Ramazan Bayramının 2. Günü.' },
+  '2026-03-22': { title: 'Ramazan Bayramı (3. Gün)', description: 'Ramazan Bayramının 3. ve son günü.' },
+  '2026-05-26': { title: 'Arefe', description: 'Kurban Bayramı öncesi Arefe günü.' },
+  '2026-05-27': { title: 'Kurban Bayramı (1. Gün)', description: 'Kurban Bayramının 1. Günü.' },
+  '2026-05-28': { title: 'Kurban Bayramı (2. Gün)', description: 'Kurban Bayramının 2. Günü.' },
+  '2026-05-29': { title: 'Kurban Bayramı (3. Gün)', description: 'Kurban Bayramının 3. Günü.' },
+  '2026-05-30': { title: 'Kurban Bayramı (4. Gün)', description: 'Kurban Bayramının 4. ve son günü.' },
+  '2026-06-16': { title: 'Hicri Yılbaşı', description: 'Hicri 1448 yılının başlangıcı (1 Muharrem).' },
+  '2026-06-25': { title: 'Aşure Günü', description: 'Muharrem ayının 10. günü, bereket ve paylaşma günü.' },
+  '2026-08-24': { title: 'Mevlid Kandili', description: 'Peygamber Efendimizin dünyayı şereflendirdiği veladet gecesi.' },
+  '2026-12-10': { title: 'Üç Ayların Başlangıcı ve Regaib Kandili', description: 'Mübarek üç ayların başlangıcı ve Regaib gecesi.' },
 };
 
 const SPECIAL_DAYS_NOTIFICATIONS_KEY = '@zikirmatik/specialDaysNotifications';
