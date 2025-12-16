@@ -3,7 +3,7 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Platform, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Calendar, DateData, LocaleConfig } from 'react-native-calendars';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 /*import { LinearGradient } from 'expo-linear-gradient'; // Optional: for nicer card backgrounds if installed, otherwise View is fine.*/
@@ -18,24 +18,118 @@ LocaleConfig.locales['tr'] = {
 };
 LocaleConfig.defaultLocale = 'tr';
 
-const SPECIAL_DAYS: Record<string, { title: string; description: string }> = {
-  '2026-01-15': { title: 'Miraç Kandili', description: 'Peygamber Efendimizin göğe yükseliş mucizesinin yıl dönümü.' },
-  '2026-02-02': { title: 'Berat Kandili', description: 'Ramazan ayının habercisi, kurtuluş ve bağışlanma gecesi.' },
-  '2026-02-19': { title: 'Ramazan Başlangıcı', description: 'On bir ayın sultanı Ramazan ayının ilk günü.' },
-  '2026-03-16': { title: 'Kadir Gecesi', description: 'Kur\'an-ı Kerim\'in indirilmeye başlandığı, bin aydan hayırlı gece.' },
-  '2026-03-19': { title: 'Arefe', description: 'Ramazan Bayramı öncesi Arefe günü.' },
-  '2026-03-20': { title: 'Ramazan Bayramı (1. Gün)', description: 'Ramazan Bayramının 1. Günü. Sevdiklerinizle bayramlaşmayı unutmayın.' },
-  '2026-03-21': { title: 'Ramazan Bayramı (2. Gün)', description: 'Ramazan Bayramının 2. Günü.' },
-  '2026-03-22': { title: 'Ramazan Bayramı (3. Gün)', description: 'Ramazan Bayramının 3. ve son günü.' },
-  '2026-05-26': { title: 'Arefe', description: 'Kurban Bayramı öncesi Arefe günü.' },
-  '2026-05-27': { title: 'Kurban Bayramı (1. Gün)', description: 'Kurban Bayramının 1. Günü.' },
-  '2026-05-28': { title: 'Kurban Bayramı (2. Gün)', description: 'Kurban Bayramının 2. Günü.' },
-  '2026-05-29': { title: 'Kurban Bayramı (3. Gün)', description: 'Kurban Bayramının 3. Günü.' },
-  '2026-05-30': { title: 'Kurban Bayramı (4. Gün)', description: 'Kurban Bayramının 4. ve son günü.' },
-  '2026-06-16': { title: 'Hicri Yılbaşı', description: 'Hicri 1448 yılının başlangıcı (1 Muharrem).' },
-  '2026-06-25': { title: 'Aşure Günü', description: 'Muharrem ayının 10. günü, bereket ve paylaşma günü.' },
-  '2026-08-24': { title: 'Mevlid Kandili', description: 'Peygamber Efendimizin dünyayı şereflendirdiği veladet gecesi.' },
-  '2026-12-10': { title: 'Üç Ayların Başlangıcı ve Regaib Kandili', description: 'Mübarek üç ayların başlangıcı ve Regaib gecesi.' },
+// constants/specialDays.ts
+
+export interface SpecialDay {
+  title: string;
+  description: string;
+  advice: string; // O güne özel tavsiye ve yapılacaklar
+  dhikr?: string; // O gün için önerilen kısa zikir veya dua
+}
+
+export const SPECIAL_DAYS: Record<string, SpecialDay> = {
+  '2026-01-15': {
+    title: 'Miraç Kandili',
+    description: 'Peygamber Efendimizin göğe yükseliş mucizesinin yıl dönümü.',
+    advice: 'Bu gece bolca kaza namazı kılınmalı, Kur\'an-ı Kerim okunmalı ve geçmiş günahlar için tövbe edilmelidir. Peygamberimize (s.a.v.) bolca salavat getirmek çok faziletlidir.',
+    dhikr: 'Allahümme salli alâ seyyidinâ Muhammedin ve alâ âli seyyidinâ Muhammed',
+  },
+  '2026-02-02': {
+    title: 'Berat Kandili',
+    description: 'Ramazan ayının habercisi, kurtuluş ve bağışlanma gecesi.',
+    advice: 'Bu gece "Beraat" (kurtuluş) gecesidir. Yüce Allah\'tan af dilenmeli, dargınlar barışmalı. Peygamberimiz bu gece "Allah\'ım! Azabından affına, gazabından rızana sığınırım" diye dua ederdi.',
+    dhikr: 'Estağfirullah el-Azîm ve etûbü ileyh',
+  },
+  '2026-02-19': {
+    title: 'Ramazan Başlangıcı',
+    description: 'On bir ayın sultanı Ramazan ayının ilk günü.',
+    advice: 'Oruç ibadetine halis bir niyetle başlanmalı. Teravih namazlarına özen gösterilmeli ve her gün en azından bir miktar Kur\'an (mukabele) okunmalıdır.',
+    dhikr: 'Allahümme leke sumtü ve bike âmentü',
+  },
+  '2026-03-16': {
+    title: 'Kadir Gecesi',
+    description: 'Kur\'an-ı Kerim\'in indirilmeye başlandığı, bin aydan hayırlı gece.',
+    advice: 'Bu gece sabaha kadar ibadetle değerlendirilmelidir. Peygamber Efendimizin Hz. Aişe validemize öğrettiği şu dua çokça okunmalıdır: "Allah\'ım! Sen affedicisin, affı seversin, beni affet."',
+    dhikr: 'Allahümme inneke afüvvün tuhibbül afve fa\'fu annî',
+  },
+  '2026-03-19': {
+    title: 'Arefe (Ramazan)',
+    description: 'Ramazan Bayramı öncesi Arefe günü.',
+    advice: 'Bin İhlas-ı Şerif okumak bugünün önemli adetlerindendir. Kabir ziyaretleri yapılmalı, ölmüşlerimizin ruhuna Fatiha okunmalıdır.',
+    dhikr: 'İhlas Suresi (1000 defa tavsiye edilir)',
+  },
+  '2026-03-20': {
+    title: 'Ramazan Bayramı (1. Gün)',
+    description: 'Ramazan Bayramının 1. Günü. Sevdiklerinizle bayramlaşmayı unutmayın.',
+    advice: 'Sabah bayram namazı kılınmalı. Anne-baba ve akrabalar ziyaret edilmeli, çocuklara hediyeler verilerek sevindirilmelidir. Küsler barışmalıdır.',
+    dhikr: 'Allahü Ekber Allahü Ekber Lâ ilâhe illallahu vallahu ekber',
+  },
+  '2026-03-21': {
+    title: 'Ramazan Bayramı (2. Gün)',
+    description: 'Ramazan Bayramının 2. Günü.',
+    advice: 'Sıla-i rahim (akraba ziyareti) ibadetine devam edilmeli. Hasta ve yaşlılar ziyaret edilerek hayır duaları alınmalıdır.',
+    dhikr: 'Sübhanallahi ve bihamdihi',
+  },
+  '2026-03-22': {
+    title: 'Ramazan Bayramı (3. Gün)',
+    description: 'Ramazan Bayramının 3. ve son günü.',
+    advice: 'Bayramın son gününde de tebessüm sadakasını eksik etmeyin. Fakir ve muhtaçlara yardım elini uzatmaya devam edin.',
+    dhikr: 'Elhamdülillah',
+  },
+  '2026-05-26': {
+    title: 'Arefe (Kurban)',
+    description: 'Kurban Bayramı öncesi Arefe günü.',
+    advice: 'Sabah namazından itibaren "Teşrik Tekbirleri"ne (Allâhü ekber, Allâhü ekber, Lâ ilâhe illallâhü vallâhü ekber...) başlanmalı ve bayramın 4. günü ikindi namazına kadar her farz namazdan sonra getirilmelidir.',
+    dhikr: 'Allâhü ekber, Allâhü ekber, Lâ ilâhe illallâhü vallâhü ekber',
+  },
+  '2026-05-27': {
+    title: 'Kurban Bayramı (1. Gün)',
+    description: 'Kurban Bayramının 1. Günü.',
+    advice: 'Kurban ibadeti yerine getirilmeli. Kurban eti fakirlerle, komşularla ve ev halkıyla paylaşılmalı. Teşrik tekbirleri unutulmamalıdır.',
+    dhikr: 'Teşrik Tekbirleri (Farz namazları sonrası)',
+  },
+  '2026-05-28': {
+    title: 'Kurban Bayramı (2. Gün)',
+    description: 'Kurban Bayramının 2. Günü.',
+    advice: 'Kurban kesimi devam edebilir. Akraba ziyaretleri yapılmalı ve Allah\'a şükür edilmelidir. Teşrik tekbirlerine devam edilmelidir.',
+    dhikr: 'Elhamdülillah alâ külli hâl',
+  },
+  '2026-05-29': {
+    title: 'Kurban Bayramı (3. Gün)',
+    description: 'Kurban Bayramının 3. Günü.',
+    advice: 'Bayram coşkusu paylaşarak çoğaltılmalı. Bugün de kurban kesilebilir. Teşrik tekbirlerine her farz namazı sonrası devam edilmelidir.',
+    dhikr: 'Sübhanallah',
+  },
+  '2026-05-30': {
+    title: 'Kurban Bayramı (4. Gün)',
+    description: 'Kurban Bayramının 4. ve son günü.',
+    advice: 'İkindi namazı ile birlikte Teşrik tekbirleri sona erer. Bayramın manevi atmosferini günlük hayata taşımaya niyet edilmelidir.',
+    dhikr: 'Lâ havle velâ kuvvete illâ billâh',
+  },
+  '2026-06-16': {
+    title: 'Hicri Yılbaşı',
+    description: 'Hicri 1448 yılının başlangıcı (1 Muharrem).',
+    advice: 'Yeni Hicri yılın hayırlara vesile olması için dua edilmeli. Geçen yılın muhasebesi yapılmalı. Muharrem ayı Allah\'ın ayı olarak bilinir, bu ayda oruç tutmak çok faziletlidir.',
+    dhikr: 'Hasbünallâhu ve ni\'mel vekîl',
+  },
+  '2026-06-25': {
+    title: 'Aşure Günü',
+    description: 'Muharrem ayının 10. günü, bereket ve paylaşma günü.',
+    advice: 'Bugün oruç tutmak sünnettir (bir önceki veya bir sonraki günle birleştirerek). Evde aşure pişirip dağıtmak, sadaka vermek bereket vesilesidir.',
+    dhikr: 'Sübhanallahi mil\'el mizan ve müntehe\'l-ilm',
+  },
+  '2026-08-24': {
+    title: 'Mevlid Kandili',
+    description: 'Peygamber Efendimizin dünyayı şereflendirdiği veladet gecesi.',
+    advice: 'Peygamber Efendimizin (s.a.v.) hayatı ve güzel ahlakı üzerine tefekkür edilmeli, O\'nu anlamaya çalışmalı. Bol bol Salavat-ı Şerife getirilmelidir.',
+    dhikr: 'Allahümme salli alâ seyyidinâ Muhammedin ve alâ âlihî ve sahbihî ve sellim',
+  },
+  '2026-12-10': {
+    title: 'Üç Ayların Başlangıcı ve Regaib Kandili',
+    description: 'Mübarek üç ayların başlangıcı ve Regaib gecesi.',
+    advice: 'Recep ayının ilk cuma gecesidir. Allah\'a rağbet etme, O\'na yönelme gecesidir. Peygamberimizin duası okunur: "Allahım! Recep ve Şaban\'ı bize mübarek kıl ve bizi Ramazan\'a ulaştır."',
+    dhikr: 'Allahümme bârik lenâ fî Recebe ve Şa\'bân ve belliğnâ Ramadân',
+  },
 };
 
 const SPECIAL_DAYS_NOTIFICATIONS_KEY = '@zikirmatik/specialDaysNotifications';
@@ -256,7 +350,7 @@ export default function CalendarScreen() {
     setSelectedDate(day.dateString);
   };
 
-  const getDayContent = (date: string) => {
+  const getDayContent = (date: string): SpecialDay => {
     // 1. Check Hardcoded Special Days
     if (SPECIAL_DAYS[date]) {
       return SPECIAL_DAYS[date];
@@ -266,14 +360,20 @@ export default function CalendarScreen() {
     if (isFriday(date)) {
       return {
         title: 'Hayırlı Cumalar',
-        description: 'Cuma günü müminlerin bayramıdır. Kehf suresini okumayı unutmayın.'
+        description: 'Cuma günü müminlerin bayramıdır.',
+        advice:
+          'Bugünü özellikle Cuma namazı, bol salavat, Kehf Suresi okumak ve dua ile değerlendirmeye niyet edebilirsin.',
+        dhikr: 'Allahümme salli alâ seyyidinâ Muhammedin ve alâ âli seyyidinâ Muhammed',
       };
     }
 
     // 3. Default
     return {
       title: 'Günlük Zikir',
-      description: 'Bugün için özel bir dini gün bulunmuyor. Günlük zikir hedefinizi tamamladınız mı?'
+      description: 'Bugün için özel bir dini gün bulunmuyor.',
+      advice:
+        'Gününe besmele ile başla, kısa aralıklarla zikir çek ve bugün en az bir iyilik yapmaya niyet et.',
+      dhikr: 'Subhanallah, Elhamdülillah, Allahu Ekber (her biri 33 defa)',
     };
   };
 
@@ -281,8 +381,29 @@ export default function CalendarScreen() {
 
   const handleShare = async () => {
     try {
-      const dateStr = new Date(selectedDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' });
-      const shareMessage = `${dateStr}\n\n${activeContent.title}\n\n${activeContent.description}`;
+      const dateStr = new Date(selectedDate).toLocaleDateString('tr-TR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      });
+
+      const parts: string[] = [
+        dateStr,
+        '',
+        activeContent.title,
+        '',
+        activeContent.description,
+      ];
+
+      if (activeContent.advice) {
+        parts.push('', `Tavsiye: ${activeContent.advice}`);
+      }
+
+      if (activeContent.dhikr) {
+        parts.push('', `Zikir Önerisi: ${activeContent.dhikr}`);
+      }
+
+      const shareMessage = parts.join('\n');
       
       await Share.share({
         message: shareMessage,
@@ -333,25 +454,53 @@ export default function CalendarScreen() {
           <Text style={[styles.cardDate, { color: theme.icon }]}>
             {new Date(selectedDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </Text>
-          <View style={[styles.indicator, { backgroundColor: SPECIAL_DAYS[selectedDate] || isFriday(selectedDate) ? '#2ecc71' : theme.icon }]} />
+          <TouchableOpacity 
+            style={[styles.actionButton, { backgroundColor: '#ffbf00' }]}
+            onPress={handleShare}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.actionButtonText}>Paylaş</Text>
+          </TouchableOpacity>
+          <View
+            style={[
+              styles.indicator,
+              {
+                backgroundColor:
+                  SPECIAL_DAYS[selectedDate] || isFriday(selectedDate)
+                    ? '#2ecc71'
+                    : theme.icon,
+              },
+            ]}
+          />
         </View>
 
-        <Text style={[styles.cardTitle, { color: theme.text }]}>
-          {activeContent.title}
-        </Text>
-        
-        <Text style={[styles.cardDescription, { color: theme.text }]}>
-          {activeContent.description}
-        </Text>
-
-        {/* Share Button */}
-        <TouchableOpacity 
-          style={[styles.actionButton, { backgroundColor: '#ffbf00' }]}
-          onPress={handleShare}
-          activeOpacity={0.8}
+        <ScrollView
+          style={styles.cardScroll}
+          contentContainerStyle={styles.cardScrollContent}
+          showsVerticalScrollIndicator={false}
         >
-           <Text style={styles.actionButtonText}>Paylaş</Text>
-        </TouchableOpacity>
+          <Text style={[styles.cardTitle, { color: theme.text }]}>
+            {activeContent.title}
+          </Text>
+          
+          <Text style={[styles.cardDescription, { color: theme.text }]}>
+            {activeContent.description}
+          </Text>
+
+          {activeContent.advice ? (
+            <View style={styles.infoSection}>
+              <Text style={[styles.infoLabel, { color: theme.icon }]}>TAVSİYE</Text>
+              <Text style={[styles.infoText, { color: theme.text }]}>{activeContent.advice}</Text>
+            </View>
+          ) : null}
+
+          {activeContent.dhikr ? (
+            <View style={styles.infoSection}>
+              <Text style={[styles.infoLabel, { color: theme.icon }]}>ÖNERİLEN ZİKİR</Text>
+              <Text style={[styles.infoText, { color: theme.text }]}>{activeContent.dhikr}</Text>
+            </View>
+          ) : null}
+        </ScrollView>
       </View>
 
     </View>
@@ -364,7 +513,7 @@ const styles = StyleSheet.create({
   },
   calendarContainer: {
     flex: 1.5, // Takes up more space at the top
-    padding: 10,
+    padding: 0,
     justifyContent: 'center',
   },
   cardContainer: {
@@ -383,11 +532,17 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 10,
   },
+  cardScroll: {
+    flex: 1,
+  },
+  cardScrollContent: {
+    paddingBottom: 8,
+  },
   cardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 15,
+    marginBottom: 6,
   },
   cardDate: {
     fontSize: 14,
@@ -399,29 +554,45 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
+    marginLeft: 8,
   },
   cardTitle: {
-    fontSize: 28,
+    fontSize: 22,
     fontWeight: 'bold',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   cardDescription: {
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
     opacity: 0.8,
-    marginBottom: 20,
+    marginBottom: 16,
+  },
+  infoSection: {
+    marginBottom: 12,
+  },
+  infoLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  infoText: {
+    fontSize: 13,
+    lineHeight: 18,
+    opacity: 0.9,
   },
   actionButton: {
-    paddingVertical: 15,
-    borderRadius: 15,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 12,
     alignItems: 'center',
-    marginTop: 'auto', // Pushes button to bottom of card
-    marginBottom: 20,
-    color: '#ffbf00',
+    justifyContent: 'center',
+    marginLeft: 'auto',
   },
   actionButtonText: {
     color: 'black',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 14,
   }
 });

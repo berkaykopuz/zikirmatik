@@ -255,7 +255,7 @@ export default function ReminderScreen() {
       const notificationId = await Notifications.scheduleNotificationAsync({
         content: {
           title: reminder.zikhrName,
-          body: reminder.message || 'Zikir zamanı geldi!',
+          body: reminder.message || 'Zikrini çekmeyi unutma!',
           sound: true,
           channelId: Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined,
           data: { reminderId: reminder.id },

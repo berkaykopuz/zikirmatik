@@ -9,10 +9,10 @@ import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, Platform, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, Image, ImageBackground, Modal, Pressable, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 import Svg, { Circle } from 'react-native-svg';
 import { VolumeManager } from 'react-native-volume-manager';
-import { BannerAd, BannerAdSize, TestIds } from 'react-native-google-mobile-ads';
 
 import { ZikhrHomeWidget } from "@/widgets/ZikhrHomeWidget";
 import { requestWidgetUpdate } from "react-native-android-widget";
@@ -64,6 +64,7 @@ export default function HomeScreen() {
   const [isHadithInfoVisible, setHadithInfoVisible] = useState(false);
   const [isStreakInfoVisible, setStreakInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
+  const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
   const isInitialLoadRef = useRef(true);
   const previousZikhrNameRef = useRef<string | null>(null);
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -202,6 +203,24 @@ export default function HomeScreen() {
     }, 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedZikhr?.name, selectedZikhr?.count, zikhrProgress]); // Include zikhrProgress to read latest value, but use ref to prevent re-runs
+
+  // Show onboarding image only on very first app open after install
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const hasSeen = await AsyncStorage.getItem('hasSeenOnboardingV1');
+        if (!hasSeen) {
+          setIsOnboardingVisible(true);
+          await AsyncStorage.setItem('hasSeenOnboardingV1', 'true');
+        }
+      } catch (e) {
+        // If anything goes wrong, just skip onboarding to avoid blocking the user
+        console.warn('Failed to check onboarding flag', e);
+      }
+    };
+
+    checkOnboarding();
+  }, []);
 
   const progress = target > 0 ? Math.min(count / target, 1) : 0;
   const strokeDashoffset = PROGRESS_RING_CIRCUMFERENCE * (1 - progress);
@@ -471,7 +490,6 @@ export default function HomeScreen() {
           <View style={styles.deviceContainer}>
             <View style={styles.device}>
               <View style={styles.deviceInnerGlow} />
-              <View style={styles.deviceTopHighlight} />
 
               <View style={styles.displayContainer}>
                 <Text style={styles.ledDisplay}>{formatCount(count)}</Text>
@@ -556,27 +574,27 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
+          
+          <TouchableOpacity
+            style={styles.hadithSection}
+            onPress={() => setHadithInfoVisible(true)}
+            activeOpacity={0.9}
+          >
+            <View style={styles.hadithHeader}>
+              <Text style={styles.hadithTitle}>Günün Anlatısı</Text>
+              <Image
+                source={require('@/assets/images/hadith-arabic.png')}
+                style={styles.hadithArabicImage}
+                resizeMode="contain"
+              />
+              <TouchableOpacity style={styles.hadithShareButton} onPress={shareHadith}>
+                <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.hadithText} numberOfLines={2}>{dailyHadith.text}</Text>
+            <Text style={styles.hadithSource}>{dailyHadith.source}</Text>
+          </TouchableOpacity>
         </ScrollView >
-
-        <TouchableOpacity
-          style={styles.hadithSection}
-          onPress={() => setHadithInfoVisible(true)}
-          activeOpacity={0.9}
-        >
-          <View style={styles.hadithHeader}>
-            <Text style={styles.hadithTitle}>Günün Anlatısı</Text>
-            <Image
-              source={require('@/assets/images/hadith-arabic.png')}
-              style={styles.hadithArabicImage}
-              resizeMode="contain"
-            />
-            <TouchableOpacity style={styles.hadithShareButton} onPress={shareHadith}>
-              <Text style={styles.hadithShareButtonText}>PAYLAŞ</Text>
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.hadithText} numberOfLines={2}>{dailyHadith.text}</Text>
-          <Text style={styles.hadithSource}>{dailyHadith.source}</Text>
-        </TouchableOpacity>
       </>
     );
   }
@@ -595,7 +613,37 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Modals */}
+      {/* First Instruction Modal */}
+      <Modal
+        animationType="fade"
+        transparent
+        visible={isOnboardingVisible}
+        onRequestClose={() => setIsOnboardingVisible(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <BlurView
+            intensity={50}
+            style={StyleSheet.absoluteFill}
+            tint="dark"
+            experimentalBlurMethod="dimezisBlurView"
+          />
+          <View style={styles.onboardingCard}>
+            <Text style={styles.onboardingTitle}>Nasıl Kullanılır?</Text>
+            <Image
+              source={require('@/assets/images/hadith-arabic.png')}
+              style={styles.onboardingImage}
+              resizeMode="contain"
+            />
+            <TouchableOpacity
+              style={styles.onboardingButton}
+              onPress={() => setIsOnboardingVisible(false)}
+            >
+              <Text style={styles.onboardingButtonText}>Anladım</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <Modal
         animationType="fade"
         transparent={true}
@@ -744,7 +792,7 @@ export default function HomeScreen() {
         </View>
       </Modal>
 
-      {/* Google AdMob banner – bottom-right, above tab bar */}
+      {/* Google AdMob banner – bottom-centralized, above tab bar */}
         <View style={styles.adBannerContainer}>
           <BannerAd
             unitId={BANNER_AD_UNIT_ID}
@@ -805,7 +853,8 @@ const styles = StyleSheet.create({
   contentContainer: {
     flexGrow: 1,
     padding: 15,
-    paddingTop: 20,
+    paddingTop: 110,
+    paddingBottom: 220,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -815,6 +864,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 18,
+    marginTop: 24,
     marginBottom: 18,
     alignItems: 'center',
     justifyContent: 'center',
@@ -854,8 +904,7 @@ const styles = StyleSheet.create({
   deviceContainer: {
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
+    justifyContent: 'center'
   },
   device: {
     width: DEVICE_WIDTH,
@@ -878,6 +927,7 @@ const styles = StyleSheet.create({
     // Inner shadow effect using overlay
     overflow: 'hidden',
   },
+
   deviceInnerGlow: {
     position: 'absolute',
     top: 0,
@@ -1034,9 +1084,9 @@ const styles = StyleSheet.create({
     padding: 12,
     borderWidth: 1,
     borderColor: '#3a3d42',
-    bottom: 80,
-    position: "absolute",
-    left: '5%',
+    marginTop: 30,
+    marginBottom: 20,
+    alignSelf: 'center',
   },
   hadithHeader: {
     flexDirection: 'row',
@@ -1215,8 +1265,50 @@ const styles = StyleSheet.create({
   },
   adBannerContainer: {
     position: 'absolute',
-    right: 12,
-    bottom: 16,
-    alignItems: 'flex-end',
+    left: 0,
+    right: 0,
+    bottom: 1,
+    alignItems: 'center',
+  },
+  onboardingCard: {
+    width: '85%',
+    maxWidth: 420,
+    backgroundColor: '#1f2025',
+    borderRadius: 18,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#3a3d42',
+    alignItems: 'center',
+  },
+  onboardingTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#ffbf00',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  onboardingImage: {
+    width: '100%',
+    height: 220,
+    marginBottom: 12,
+  },
+  onboardingDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: '#e6e7e9',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  onboardingButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 26,
+    backgroundColor: '#ffbf00',
+    borderRadius: 999,
+  },
+  onboardingButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0b2f1b',
   },
 });

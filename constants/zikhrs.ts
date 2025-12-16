@@ -10,21 +10,21 @@ export const ZIKHR_ITEMS: ZikhrItem[] = [
     name: 'Subhanallah',
     arabicName: 'سبحان الله',
     description: 'Subhanallah, Allah\'ın her türlü eksiklikten münezzeh olduğunu hatırlamak için söylenir.',
-    count: 99,
+    count: 33,
   },
   {
     name: 'Elhamdülillah',
     arabicName: 'الحمد لله',
     description:
       'Elhamdülillah, tüm övgülerin yalnızca Allah\'a ait olduğunu kalpte tazelemek için söylenir.',
-    count: 99,
+    count: 33,
   },
   {
     name: 'Allahu Ekber',
     arabicName: 'الله أكبر',
     description:
       'Allahu Ekber, Allah\'ın en yüce olduğunu idrak etmek ve kalbi diriltmek için söylenir.',
-    count: 99,
+    count: 33,
   },
   {
     name: 'La ilahe illallah',

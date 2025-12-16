@@ -105,13 +105,13 @@
       [
         "react-native-google-mobile-ads",
         {
-            "androidAppId": "ca-app-pub-7326975715449797~4674409381"
+          "androidAppId": "ca-app-pub-7326975715449797~4674409381"
         }
       ]
-  ],
-  "experiments": {
-    "typedRoutes": true,
-    "reactCompiler": true
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
     },
     "assets": [
       "./assets/fonts/"
@@ -119,13 +119,14 @@
     "entryPoint": "./index.ts",
     "extra": {
       "router": {},
-      "eas": {
-        "projectId": "4d97e1b0-fca1-4b23-b5f6-818a25aa227c"
+      "react-native-google-mobile-ads": {
+        "androidAppId": "ca-app-pub-7326975715449797~4674409381",
+        "userTrackingUsageDescription": "Tracking"
       },
-      "react-native-google-mobile-ads":{
-            "androidAppId": "ca-app-pub-7326975715449797~4674409381",
-            "userTrackingUsageDescription": "Tracking"
+      "eas": {
+        "projectId": "b4647f1f-b394-43cb-8d72-e910961db6ad"
       }
-    }
+    },
+    "owner": "berkaykopuz1"
   }
 }

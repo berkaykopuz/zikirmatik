@@ -1,12 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useRouter } from 'expo-router';
+import { useEffect, useRef } from 'react';
 import { Alert, Image, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { AdEventType, InterstitialAd, TestIds } from 'react-native-google-mobile-ads';
+
+const INTERSTITIAL_AD_UNIT_ID = __DEV__
+    ? TestIds.INTERSTITIAL
+    : 'ca-app-pub-7326975715449797/1154908724';
 
 import { useZikhr } from '@/context/ZikhrContext';
 import { useStreak } from '@/context/StreakContext';
 
 export default function SettingsScreen() {
     const router = useRouter();
+    const interstitialRef = useRef<InterstitialAd | null>(null);
     const {
         sfxEnabled,
         setSfxEnabled,
@@ -21,6 +28,28 @@ export default function SettingsScreen() {
         setVolumeCountEnabled
     } = useZikhr();
     const { resetStreak } = useStreak();
+
+    useEffect(() => {
+        const interstitial = InterstitialAd.createForAdRequest(INTERSTITIAL_AD_UNIT_ID, {
+            requestNonPersonalizedAdsOnly: true,
+        });
+
+        interstitialRef.current = interstitial;
+
+        const loadedListener = interstitial.addAdEventListener(AdEventType.LOADED, () => {
+            interstitial.show().catch(() => {});
+        });
+
+        const errorListener = interstitial.addAdEventListener(AdEventType.ERROR, () => { });
+
+        interstitial.load();
+
+        return () => {
+            loadedListener();
+            errorListener();
+            interstitialRef.current = null;
+        };
+    }, []);
 
     const handleReset = () => {
         Alert.alert(
