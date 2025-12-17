@@ -134,6 +134,7 @@ export const SPECIAL_DAYS: Record<string, SpecialDay> = {
 
 const SPECIAL_DAYS_NOTIFICATIONS_KEY = '@zikirmatik/specialDaysNotifications';
 const ANDROID_CHANNEL_ID = 'zikirmatik-special-days';
+const ANDROID_NOTIFICATION_SOUND = 'notification'; // matches app.json > expo-notifications.sounds
 
 // Configure notification handler
 Notifications.setNotificationHandler({
@@ -171,7 +172,8 @@ export default function CalendarScreen() {
             vibrationPattern: [0, 250, 250, 250],
             lightColor: '#03c459',
             lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-            sound: 'default',
+            // Use the same custom notification sound as reminders
+            sound: ANDROID_NOTIFICATION_SOUND,
           });
         }
 
@@ -240,7 +242,8 @@ export default function CalendarScreen() {
                   const notificationContent: any = {
                     title: dayInfo.title,
                     body: `${dayInfo.title} Kutlu Olsun. Zikrini çekmeyi unutma!`,
-                    sound: true,
+                    // Use custom sound on Android, default system sound elsewhere
+                    sound: Platform.OS === 'android' ? ANDROID_NOTIFICATION_SOUND : 'default',
                     data: { 
                       type: 'specialDay',
                       date: dateString 

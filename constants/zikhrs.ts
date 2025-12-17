@@ -75,6 +75,20 @@ export const ZIKHR_ITEMS: ZikhrItem[] = [
       'Ey daima diri olan (Hayy) ve her şeyi ayakta tutan (Kayyum) Allah\'ım. Esma-ül Hüsna zikirlerinden.',
     count: 99,
   },
+  {
+    name: 'Salât-ı Tefriciye',
+    arabicName: '',
+    description:
+      'Sıkıntıların giderilmesi, isteklerin kabulü ve belaların defedilmesi için okunan, "4444 Dua" olarak da bilinen çok tesirli bir salavattır.',
+    count: 4444,
+  },
+  {
+    name: 'Salât-ı Münciye (Salaten Tüncina)',
+    arabicName: '',
+    description:
+      'Bizi her türlü korku, bela ve musibetten kurtaran, ihtiyaçlarımızı gideren ve derecelerimizi yükselten "Kurtarıcı Salavat"tır.',
+    count: 100, 
+  }
 ];
 
 export const DEFAULT_ZIKHR = ZIKHR_ITEMS[0];

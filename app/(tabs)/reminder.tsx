@@ -8,6 +8,7 @@ import { useZikhr } from '@/context/ZikhrContext';
 
 const REMINDERS_STORAGE_KEY = '@zikirmatik/reminders';
 const ANDROID_CHANNEL_ID = 'zikirmatik-reminders';
+const ANDROID_NOTIFICATION_SOUND = 'notification'; // matches app.json > expo-notifications.sounds
 
 type Reminder = {
   id: string;
@@ -106,7 +107,8 @@ export default function ReminderScreen() {
           vibrationPattern: [0, 250, 250, 250],
           lightColor: '#03c459',
           lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-          sound: 'default',
+          // Use custom notification sound registered in app.json
+          sound: ANDROID_NOTIFICATION_SOUND,
         }).catch((error) => console.warn('Failed to set notification channel', error));
       }
     };
@@ -236,13 +238,21 @@ export default function ReminderScreen() {
       if (reminder.scheduleType === 'daily') {
         if (!reminder.time) return null;
         scheduledTime = calculateNextDailyTime(reminder.time);
-        const [hours, minutes] = reminder.time.split(':').map(Number);
-        trigger = {
-          type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
-          hour: hours,
-          minute: minutes || 0,
-          repeats: true,
-        };
+
+        if (Platform.OS === 'android') {
+          trigger = {
+            type: Notifications.SchedulableTriggerInputTypes.DATE,
+            date: scheduledTime,
+          };
+        } else {
+          const [hours, minutes] = reminder.time.split(':').map(Number);
+          trigger = {
+            type: Notifications.SchedulableTriggerInputTypes.CALENDAR,
+            hour: hours,
+            minute: minutes || 0,
+            repeats: true,
+          };
+        }
       } else {
         if (!reminder.offsetValue || !reminder.offsetUnit) return null;
         scheduledTime = calculateRelativeTime(reminder.offsetValue, reminder.offsetUnit);
@@ -256,7 +266,9 @@ export default function ReminderScreen() {
         content: {
           title: reminder.zikhrName,
           body: reminder.message || 'Zikrini çekmeyi unutma!',
-          sound: true,
+          // On Android, use the named sound registered via expo-notifications plugin.
+          // On iOS / others, fall back to the default system sound.
+          sound: Platform.OS === 'android' ? ANDROID_NOTIFICATION_SOUND : 'default',
           channelId: Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined,
           data: { reminderId: reminder.id },
         },
