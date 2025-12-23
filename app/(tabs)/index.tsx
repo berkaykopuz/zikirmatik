@@ -628,12 +628,22 @@ export default function HomeScreen() {
             experimentalBlurMethod="dimezisBlurView"
           />
           <View style={styles.onboardingCard}>
-            <Text style={styles.onboardingTitle}>Nasıl Kullanılır?</Text>
-            <Image
-              source={require('@/assets/images/hadith-arabic.png')}
-              style={styles.onboardingImage}
-              resizeMode="contain"
-            />
+            <Text style={styles.onboardingTitle}>Bilmeniz Tavsiye Edilir</Text>
+            <Text style={styles.onboardingDescription}>
+              Dilediğiniz özelliği ana ekrandaki ayarlar simgesine tıklayarak kapatıp açabilirsiniz.
+            </Text>
+            <View style={styles.onboardingImagesContainer}>
+              <Image
+                source={require('@/assets/images/instructions/instruction1.png')}
+                style={styles.onboardingImage}
+                resizeMode="contain"
+              />
+              <Image
+                source={require('@/assets/images/instructions/instruction2.png')}
+                style={styles.onboardingImage}
+                resizeMode="contain"
+              />
+            </View>
             <TouchableOpacity
               style={styles.onboardingButton}
               onPress={() => setIsOnboardingVisible(false)}
@@ -1288,10 +1298,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  onboardingImage: {
+  onboardingImagesContainer: {
+    flexDirection: 'row',
+    gap: 12,
     width: '100%',
-    height: 220,
     marginBottom: 12,
+  },
+  onboardingImage: {
+    flex: 1,
+    height: 220,
   },
   onboardingDescription: {
     fontSize: 14,

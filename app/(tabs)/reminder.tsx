@@ -470,9 +470,9 @@ export default function ReminderScreen() {
               style={styles.input}
               placeholder="08:00"
               placeholderTextColor="#6f737a"
-              keyboardType="numbers-and-punctuation"
+              keyboardType="number-pad"
               value={timeInput}
-              onChangeText={setTimeInput}
+              onChangeText={(text) => setTimeInput(formatTimeString(text))}
               onBlur={() => setTimeInput((prev) => formatTimeString(prev))}
               maxLength={5}
             />

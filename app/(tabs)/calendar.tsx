@@ -480,7 +480,7 @@ export default function CalendarScreen() {
         <ScrollView
           style={styles.cardScroll}
           contentContainerStyle={styles.cardScrollContent}
-          showsVerticalScrollIndicator={false}
+          persistentScrollbar={true}
         >
           <Text style={[styles.cardTitle, { color: theme.text }]}>
             {activeContent.title}
