@@ -154,7 +154,7 @@ const isFriday = (dateString: string) => {
 };
 
 export default function CalendarScreen() {
-  const colorScheme = useColorScheme() ?? 'light';
+  const colorScheme = useColorScheme() ?? 'dark';
   const theme = Colors[colorScheme];
   const insets = useSafeAreaInsets();
   

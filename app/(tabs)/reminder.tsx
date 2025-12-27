@@ -60,6 +60,7 @@ export default function ReminderScreen() {
   const { zikhrs } = useZikhr();
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const remindersRef = useRef<Reminder[]>([]);
+  const hasRescheduledRef = useRef(false);
   const [scheduleType, setScheduleType] = useState<'daily' | 'relative'>('daily');
   const [timeInput, setTimeInput] = useState('');
   const [offsetValue, setOffsetValue] = useState('');
@@ -131,7 +132,7 @@ export default function ReminderScreen() {
     }
   }, []);
 
-  // Listen for notifications and auto-remove one-time reminders
+  // Listen for notifications and auto-remove one-time reminders or reschedule daily reminders
   useEffect(() => {
     const subscription = Notifications.addNotificationReceivedListener(async (notification) => {
       const reminderId = notification.request.content.data?.reminderId as string | undefined;
@@ -152,6 +153,35 @@ export default function ReminderScreen() {
         const updated = remindersRef.current.filter((r) => r.id !== reminder.id);
         setReminders(updated);
         await saveReminders(updated);
+      } 
+      // If it's a daily reminder on Android, reschedule it for the next day
+      else if (reminder.scheduleType === 'daily' && Platform.OS === 'android' && reminder.enabled && reminder.time) {
+        // Cancel the old notification
+        if (reminder.notificationId) {
+          await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
+        }
+
+        // Calculate next scheduled time
+        const nextScheduledTime = calculateNextDailyTime(reminder.time);
+        
+        // Schedule new notification for the next day
+        const newNotificationId = await scheduleNotification(reminder);
+        
+        if (newNotificationId) {
+          // Update reminder with new notification ID and scheduled time
+          const updated = remindersRef.current.map((r) => {
+            if (r.id === reminder.id) {
+              return {
+                ...r,
+                notificationId: newNotificationId,
+                scheduledFor: nextScheduledTime.toISOString(),
+              };
+            }
+            return r;
+          });
+          setReminders(updated);
+          await saveReminders(updated);
+        }
       }
     });
 
@@ -262,16 +292,21 @@ export default function ReminderScreen() {
         };
       }
 
+      const notificationContent: any = {
+        title: reminder.zikhrName,
+        body: reminder.message || 'Zikrini çekmeyi unutma!',
+        // On Android, use the named sound registered via expo-notifications plugin.
+        // On iOS / others, fall back to the default system sound.
+        sound: Platform.OS === 'android' ? ANDROID_NOTIFICATION_SOUND : 'default',
+        data: { reminderId: reminder.id },
+      };
+      
+      if (Platform.OS === 'android') {
+        notificationContent.channelId = ANDROID_CHANNEL_ID;
+      }
+
       const notificationId = await Notifications.scheduleNotificationAsync({
-        content: {
-          title: reminder.zikhrName,
-          body: reminder.message || 'Zikrini çekmeyi unutma!',
-          // On Android, use the named sound registered via expo-notifications plugin.
-          // On iOS / others, fall back to the default system sound.
-          sound: Platform.OS === 'android' ? ANDROID_NOTIFICATION_SOUND : 'default',
-          channelId: Platform.OS === 'android' ? ANDROID_CHANNEL_ID : undefined,
-          data: { reminderId: reminder.id },
-        },
+        content: notificationContent,
         trigger,
       });
 
@@ -281,6 +316,89 @@ export default function ReminderScreen() {
       return null;
     }
   };
+
+  // Reschedule daily reminders on Android when reminders are loaded (in case app was closed when notification fired)
+  useEffect(() => {
+    if (reminders.length === 0 || hasRescheduledRef.current) return;
+    if (Platform.OS !== 'android') {
+      hasRescheduledRef.current = true;
+      return;
+    }
+
+    const rescheduleDailyReminders = async () => {
+      // Check permissions first
+      const { status } = await Notifications.getPermissionsAsync();
+      if (status !== 'granted') {
+        hasRescheduledRef.current = true;
+        return;
+      }
+
+      let needsUpdate = false;
+      const updated = await Promise.all(
+        reminders.map(async (reminder) => {
+          // Only reschedule enabled daily reminders
+          if (reminder.scheduleType === 'daily' && reminder.enabled && reminder.time) {
+            // Check if the scheduled time has passed
+            if (reminder.scheduledFor) {
+              const scheduledDate = new Date(reminder.scheduledFor);
+              const now = new Date();
+              
+              // If scheduled time has passed, reschedule for next day
+              if (scheduledDate <= now) {
+                needsUpdate = true;
+                
+                // Cancel old notification if exists
+                if (reminder.notificationId) {
+                  try {
+                    await Notifications.cancelScheduledNotificationAsync(reminder.notificationId);
+                  } catch (error) {
+                    console.warn('Failed to cancel old notification', error);
+                  }
+                }
+
+                // Calculate next scheduled time
+                const nextScheduledTime = calculateNextDailyTime(reminder.time);
+                
+                // Schedule new notification
+                const newNotificationId = await scheduleNotification(reminder);
+                
+                if (newNotificationId) {
+                  return {
+                    ...reminder,
+                    notificationId: newNotificationId,
+                    scheduledFor: nextScheduledTime.toISOString(),
+                  };
+                }
+              }
+            } else {
+              // If no scheduledFor, schedule it now
+              needsUpdate = true;
+              const nextScheduledTime = calculateNextDailyTime(reminder.time);
+              const newNotificationId = await scheduleNotification(reminder);
+              
+              if (newNotificationId) {
+                return {
+                  ...reminder,
+                  notificationId: newNotificationId,
+                  scheduledFor: nextScheduledTime.toISOString(),
+                };
+              }
+            }
+          }
+          return reminder;
+        })
+      );
+
+      if (needsUpdate) {
+        setReminders(updated);
+        await saveReminders(updated);
+      }
+      hasRescheduledRef.current = true;
+    };
+
+    void rescheduleDailyReminders();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reminders.length]); // Only run when reminders are first loaded (length changes from 0 to >0)
 
   // Add reminder
   const addReminder = async () => {

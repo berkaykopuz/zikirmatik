@@ -63,7 +63,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
   const [volumeCountEnabled, setVolumeCountEnabledState] = useState(true);
   const [vibrationEnabled, setVibrationEnabledState] = useState(true);
   const [appearanceMode, setAppearanceModeState] = useState<'beads' | 'digital'>('beads');
-  const [backgroundImage, setBackgroundImageState] = useState<string | null>(null);
+  const [backgroundImage, setBackgroundImageState] = useState<string | null>('nature');
 
   const zikhrs = useMemo(() => {
     const merged = [...ZIKHR_ITEMS, ...customZikhrs];
@@ -331,7 +331,15 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
           if (typeof parsed.volumeCountEnabled === 'boolean') setVolumeCountEnabledState(parsed.volumeCountEnabled);
           if (typeof parsed.vibrationEnabled === 'boolean') setVibrationEnabledState(parsed.vibrationEnabled);
           if (parsed.appearanceMode) setAppearanceModeState(parsed.appearanceMode);
-          if (parsed.backgroundImage !== undefined) setBackgroundImageState(parsed.backgroundImage);
+          if (parsed.backgroundImage !== undefined) {
+            setBackgroundImageState(parsed.backgroundImage);
+          } else {
+            // Default to 'nature' if no background is set
+            setBackgroundImageState('nature');
+          }
+        } else {
+          // If no settings exist, default to 'nature'
+          setBackgroundImageState('nature');
         }
       } catch (error) {
         console.warn('Failed to load settings', error);
@@ -433,7 +441,7 @@ export function ZikhrProvider({ children }: { children: ReactNode }) {
           setVolumeCountEnabledState(true);
           setVibrationEnabledState(true);
           setAppearanceModeState('beads');
-          setBackgroundImageState(null);
+          setBackgroundImageState('nature');
         } catch (error) {
           console.warn('Failed to reset data', error);
         }

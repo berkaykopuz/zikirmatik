@@ -201,7 +201,7 @@ export default function SettingsScreen() {
                     <View style={styles.separator} />
                     <View style={styles.infoRow}>
                         <Text style={styles.infoLabel}>Geliştirici</Text>
-                        <Text style={styles.infoValue}>Zikirmatik Ekibi</Text>
+                        <Text style={styles.infoValue}>7Studios</Text>
                     </View>
                 </View>
             </ScrollView>

@@ -17,7 +17,7 @@ import { VolumeManager } from 'react-native-volume-manager';
 import { ZikhrHomeWidget } from "@/widgets/ZikhrHomeWidget";
 import { requestWidgetUpdate } from "react-native-android-widget";
 
-import { getDailyHadith } from '@/constants/hadiths';
+import { getDailyHadith, type Hadith } from '@/constants/hadiths';
 
 const { width } = Dimensions.get('window');
 const DEVICE_WIDTH = width * 0.6;
@@ -65,6 +65,11 @@ export default function HomeScreen() {
   const [isStreakInfoVisible, setStreakInfoVisible] = useState(false);
   const [hasCompleted, setHasCompleted] = useState(false);
   const [isOnboardingVisible, setIsOnboardingVisible] = useState(false);
+  const [dailyHadith, setDailyHadith] = useState<Hadith>(() => getDailyHadith());
+  const [currentDayKey, setCurrentDayKey] = useState(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+  });
   const isInitialLoadRef = useRef(true);
   const previousZikhrNameRef = useRef<string | null>(null);
   const buttonScale = useRef(new Animated.Value(1)).current;
@@ -303,7 +308,26 @@ export default function HomeScreen() {
     );
   };
 
-  const dailyHadith = getDailyHadith();
+  // Update daily hadith when the day changes
+  useEffect(() => {
+    const checkAndUpdateHadith = () => {
+      const today = new Date();
+      const newDayKey = `${today.getFullYear()}-${today.getMonth()}-${today.getDate()}`;
+      
+      if (newDayKey !== currentDayKey) {
+        setCurrentDayKey(newDayKey);
+        setDailyHadith(getDailyHadith());
+      }
+    };
+
+    // Check immediately
+    checkAndUpdateHadith();
+
+    // Set up interval to check every minute (in case day changes while app is open)
+    const interval = setInterval(checkAndUpdateHadith, 60000);
+
+    return () => clearInterval(interval);
+  }, [currentDayKey]);
 
   const formatCount = (num: number) => {
     return String(num).padStart(5, '0');
@@ -354,6 +378,51 @@ export default function HomeScreen() {
     // Update local state - useEffect will handle context updates
     setCount((prev) => prev + 1);
   }, [selectedZikhr, sfxEnabled, boncukPlayer]);
+
+  // Enable looping for the music player
+  useEffect(() => {
+    if (!player) return;
+
+    // Try to set loop property directly if available
+    try {
+      if ('loop' in player) {
+        (player as any).loop = true;
+      }
+    } catch (e) {
+      // Ignore if loop property doesn't exist
+    }
+
+    // Fallback: Check periodically and restart when playback ends
+    const checkAndLoop = () => {
+      try {
+        if (!soundEnabled) return;
+        
+        // Try to access player status properties
+        const playerAny = player as any;
+        const isPlaying = playerAny.playing !== false;
+        const currentTime = playerAny.currentTime || 0;
+        const duration = playerAny.duration || 0;
+        
+        // If playback stopped but we were playing, restart from beginning
+        if (!isPlaying && currentTime > 0 && duration > 0) {
+          // Check if we're at or near the end (within 0.2 seconds)
+          if (currentTime >= duration - 0.2) {
+            player.seekTo(0);
+            player.play();
+          }
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    };
+
+    // Check periodically for looping (every 200ms)
+    const interval = setInterval(checkAndLoop, 200);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [player, soundEnabled]);
 
   useEffect(() => {
     try {
