@@ -542,10 +542,16 @@ export const getDailyHadith = (): Hadith => {
     };
   }
 
-  // Deterministic index that is stable for that calendar day
+  const epoch = new Date(2025, 0, 1);
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const dayKey = today.getTime();
-  const index = Math.abs(dayKey) % sourceList.length;
+  
+  // İki tarih arasındaki milisaniye farkını güne çeviriyoruz (1000ms * 60s * 60dk * 24sa)
+  const oneDayMs = 1000 * 60 * 60 * 24;
+  const diffTime = today.getTime() - epoch.getTime();
+  const daysPassed = Math.floor(diffTime / oneDayMs);
+
+  // Artık daysPassed her gün 1 artar, bu yüzden hadis her gün bir sonrakiine geçer.
+  const index = Math.abs(daysPassed) % sourceList.length;
 
   return sourceList[index];
 };

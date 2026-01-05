@@ -803,7 +803,7 @@ export default function HomeScreen() {
               <Text style={[styles.modalDescription, { marginTop: 8, textAlign: 'center' }]}>
                 {isTodayCompleted
                   ? 'Bugünün serisi tamamlandı. Yarın uğramayı unutma!'
-                  : 'Bugünkü hedefi bitir, alevi canlı tut.'}
+                  : 'Bugünkü hedefi bitir, sevabını canlı tut.'}
               </Text>
 
               <TouchableOpacity

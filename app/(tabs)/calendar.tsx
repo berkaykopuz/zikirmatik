@@ -317,7 +317,7 @@ export default function CalendarScreen() {
       marks[selectedDate] = { 
         ...marks[selectedDate], 
         selected: true, 
-        selectedColor: colorScheme === 'dark' ? '#58d5ba' : '#4ab39cff', // Better contrast blue for selection
+        selectedColor: '#58d5ba', // Dark theme blue for selection
         disableTouchEvent: true 
       };
     }
@@ -347,7 +347,7 @@ export default function CalendarScreen() {
     // For this example, we assume we just check logic on render for the card.
     
     return marks;
-  }, [selectedDate, theme]);
+  }, [selectedDate]);
 
   const onDayPress = (day: DateData) => {
     setSelectedDate(day.dateString);
@@ -418,27 +418,27 @@ export default function CalendarScreen() {
   };
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.background, paddingTop: insets.top }]}>
+    <View style={[styles.container, { backgroundColor: Colors.dark.background, paddingTop: insets.top }]}>
       
       {/* Calendar Section */}
-      <View style={styles.calendarContainer}>
+      <View style={[styles.calendarContainer, { backgroundColor: Colors.dark.background }]}>
         <Calendar
           current={selectedDate}
           onDayPress={onDayPress}
           markingType={'custom'}
           markedDates={markedDates}
           theme={{
-            backgroundColor: 'transparent',
-            calendarBackground: 'transparent',
+            backgroundColor: Colors.dark.background,
+            calendarBackground: Colors.dark.background,
             textSectionTitleColor: '#b6c1cd',
-            selectedDayBackgroundColor: colorScheme === 'dark' ? '#4a90e2' : '#0a7ea4', // Better contrast blue
+            selectedDayBackgroundColor: '#4a90e2', // Dark theme blue
             selectedDayTextColor: '#ffffff', // White text for better readability
             todayTextColor: '#098441', // Green color for today text
-            dayTextColor: theme.text,
-            textDisabledColor: colorScheme === 'dark' ? '#4a4d52' : '#c0c4c8', // Gray color for days from other months
-            arrowColor: theme.tint,
-            monthTextColor: theme.text,
-            indicatorColor: theme.tint,
+            dayTextColor: Colors.dark.text, // Always use dark theme text color
+            textDisabledColor: '#4a4d52', // Dark theme gray for days from other months
+            arrowColor: Colors.dark.tint, // Always use dark theme tint
+            monthTextColor: Colors.dark.text, // Always use dark theme text color
+            indicatorColor: Colors.dark.tint, // Always use dark theme tint
             textDayFontWeight: '500',
             textMonthFontWeight: 'bold',
             textDayHeaderFontWeight: '500',
@@ -452,9 +452,9 @@ export default function CalendarScreen() {
       </View>
 
       {/* Info Card Section */}
-      <View style={[styles.cardContainer, { backgroundColor: colorScheme === 'dark' ? '#2c2f34' : '#f0f4f8' }]}>
+      <View style={[styles.cardContainer, { backgroundColor: '#2c2f34' }]}>
         <View style={styles.cardHeader}>
-          <Text style={[styles.cardDate, { color: theme.icon }]}>
+          <Text style={[styles.cardDate, { color: '#a7acb5' }]}>
             {new Date(selectedDate).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}
           </Text>
           <TouchableOpacity 
@@ -471,7 +471,7 @@ export default function CalendarScreen() {
                 backgroundColor:
                   SPECIAL_DAYS[selectedDate] || isFriday(selectedDate)
                     ? '#2ecc71'
-                    : theme.icon,
+                    : '#a7acb5',
               },
             ]}
           />
@@ -482,25 +482,25 @@ export default function CalendarScreen() {
           contentContainerStyle={styles.cardScrollContent}
           persistentScrollbar={true}
         >
-          <Text style={[styles.cardTitle, { color: theme.text }]}>
+          <Text style={[styles.cardTitle, { color: '#e6e7e9' }]}>
             {activeContent.title}
           </Text>
           
-          <Text style={[styles.cardDescription, { color: theme.text }]}>
+          <Text style={[styles.cardDescription, { color: '#a7acb5' }]}>
             {activeContent.description}
           </Text>
 
           {activeContent.advice ? (
             <View style={styles.infoSection}>
-              <Text style={[styles.infoLabel, { color: theme.icon }]}>TAVSİYE</Text>
-              <Text style={[styles.infoText, { color: theme.text }]}>{activeContent.advice}</Text>
+              <Text style={[styles.infoLabel, { color: '#a7acb5' }]}>TAVSİYE</Text>
+              <Text style={[styles.infoText, { color: '#e6e7e9' }]}>{activeContent.advice}</Text>
             </View>
           ) : null}
 
           {activeContent.dhikr ? (
             <View style={styles.infoSection}>
-              <Text style={[styles.infoLabel, { color: theme.icon }]}>ÖNERİLEN ZİKİR</Text>
-              <Text style={[styles.infoText, { color: theme.text }]}>{activeContent.dhikr}</Text>
+              <Text style={[styles.infoLabel, { color: '#a7acb5' }]}>ÖNERİLEN ZİKİR</Text>
+              <Text style={[styles.infoText, { color: '#e6e7e9' }]}>{activeContent.dhikr}</Text>
             </View>
           ) : null}
         </ScrollView>
